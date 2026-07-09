@@ -69,7 +69,8 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 .chead{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--card);border-bottom:0.5px solid var(--line);flex-wrap:wrap}
 .cname{font-size:15px;font-weight:500;color:var(--ink)}
 .code{font-size:12px;color:var(--gold-dark);background:var(--gold-tint);border:0.5px solid var(--gold-pale);border-radius:6px;padding:2px 8px}
-.info{appearance:none;border:none;background:none;cursor:pointer;color:var(--gold);font-size:19px;line-height:1;padding:4px;min-width:32px;min-height:32px}
+.comp-code{font-weight:800;background:var(--gold)}
+.info{appearance:none;border:none;background:none;cursor:pointer;color:var(--gold-dark);font-size:19px;line-height:1;padding:4px;min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center}
 .cdef{display:none;padding:9px 16px;background:var(--gold-tint);border-bottom:0.5px solid var(--line);font-size:12.5px;color:var(--gold-dark);font-style:italic}
 .cdef.open{display:block}
 
@@ -288,11 +289,7 @@ button.primary:active{background:var(--red-dark)}
         </div>
       </div>
 
-      <div class="tblhead">
-        <b>Pilot competencies and observable behaviours</b>
-        <span><span>Applicable ✓ / NA</span><span>Observed ✓ / NO</span></span>
-      </div>
-      <div class="tbl" id="p1table"></div>
+      <div id="cards1"></div>
       <p style="font-size:12px;color:var(--mut);padding:2px 4px 8px">Competencies continue on the next page. Selections made here stay in sync throughout the form.</p>
     </div>
     <div class="foot">
@@ -303,11 +300,9 @@ button.primary:active{background:var(--red-dark)}
     </div>
   </section>
 
-  <!-- ═══ PAGE 2 · Competencies 1–5 ═══ -->
+  <!-- ═══ PAGE 2 · FPM, LTW, PSD ═══ -->
   <section class="page" id="page2">
     <div class="body">
-      <p class="ptitle">Competencies 1–5</p>
-      <div class="grule"></div>
       <div id="cards2"></div>
     </div>
     <div class="foot">
@@ -319,11 +314,9 @@ button.primary:active{background:var(--red-dark)}
     </div>
   </section>
 
-  <!-- ═══ PAGE 3 · Competencies 6–9 ═══ -->
+  <!-- ═══ PAGE 3 · SAW, WLM, KNO ═══ -->
   <section class="page" id="page3">
     <div class="body">
-      <p class="ptitle">Competencies 6–9</p>
-      <div class="grule"></div>
       <div id="cards3"></div>
 
       <div class="card">
@@ -358,7 +351,7 @@ button.primary:active{background:var(--red-dark)}
             <li>To assist with the facilitated debrief and to match overall competency grading, reports should capture objective session observations contributing to the overall outcome and grading.</li>
             <li>Completed and duly filled forms to submitted as per the shared communication protocols.</li>
             <li>For Grading, Pilot Competencies, IECs &amp; Observable Behaviours, refer to the AirIndia CBTA Manual.</li>
-            <li>For Grades <b>1, 2, 4 &amp; 5</b> when graded need remarks to identify areas that may need refinement/development and/or what went extremely well, as the case may be.</li>
+            <li>For Grades <b>1, 2 &amp; 5</b> when graded need remarks to identify areas that may need refinement/development and/or what went extremely well, as the case may be.</li>
             <li>For “How Many” (Y/X %), Grade 1 = 0 to 59% , 2 = 60% to 74% , 3 = 75% to 89% , 4 = 90% to 94% , 5 = 95% to 100% , (Round down to the nearest whole number).</li>
             <li>The use of <b>NO / NA</b> should be avoided, however, may be used where the concerned Observable Behaviour and/or Competency was “Not Observed” or “Not Applicable”.</li>
           </ol>
@@ -590,22 +583,7 @@ document.querySelectorAll("[data-bind]").forEach(el=>{
 });
 
 /* ════════ Page 1 checklist (PRO · COM · FPA) ════════ */
-function renderP1(){
-  const host=document.getElementById("p1table");
-  host.innerHTML=COMPS.slice(0,3).map((c,ci)=>
-    `<div class="sec"><span>${c.name}</span><span class="mono">${c.code}</span></div>`+
-    c.obs.map((o,oi)=>{
-      const st=state.comps[ci].obs[oi];
-      return `<div class="ob"><span class="num mono">${o[0]}</span><span class="txt">${o[1]}</span>
-        <span class="cbcol"><span class="tg">
-          <button type="button" data-ob="${ci}.${oi}.app.1" class="${st.app?"on":""}">✓</button>
-          <button type="button" data-ob="${ci}.${oi}.app.0" class="${!st.app?"na":""}">NA</button></span></span>
-        <span class="cbcol"><span class="tg">
-          <button type="button" data-ob="${ci}.${oi}.seen.1" class="${st.seen?"on":""}">✓</button>
-          <button type="button" data-ob="${ci}.${oi}.seen.0" class="${!st.seen?"na":""}">NO</button></span></span>
-      </div>`;}).join("")
-  ).join("");
-}
+/* renderP1() removed — Page 1 competencies now render via renderCards("cards1",0,3), see below */
 
 /* ════════ Competency cards (pages 2–3) ════════ */
 function renderCards(hostId,from,to){
@@ -615,8 +593,8 @@ function renderCards(hostId,from,to){
     return `<div class="card">
       <div class="chead">
         <span class="cname">${c.name}</span>
-        <span class="code mono">${c.code}</span>
-        <button type="button" class="info" data-def="${ci}" aria-label="Show definition of ${c.code}">ⓘ</button>
+        <span class="code mono comp-code">${c.code}</span>
+        <button type="button" class="info" data-def="${ci}" aria-label="Show definition of ${c.code}"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.25"/><line x1="12" y1="11" x2="12" y2="16.5"/><circle cx="12" cy="7.6" r="1.15" fill="currentColor" stroke="none"/></svg></button>
         
       </div>
       <div class="cdef" id="def${ci}">${c.def}</div>
@@ -771,9 +749,9 @@ window.addEventListener("resize",()=>{if(current===4){sizePad("Trainer");sizePad
 let current=1;
 function goTo(n){
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-  if(n===1)renderP1();
-  if(n===2)renderCards("cards2",0,5);
-  if(n===3)renderCards("cards3",5,9);
+  if(n===1)renderCards("cards1",0,3);
+  if(n===2)renderCards("cards2",3,6);
+  if(n===3)renderCards("cards3",6,9);
   if(n===4)renderReview();
   document.getElementById(n==="done"?"pageDone":"page"+n).classList.add("active");
   current=n;
@@ -879,9 +857,9 @@ document.getElementById("submitBtn").addEventListener("click",()=>{
 });
 
 /* ════════ First paint ════════ */
-renderP1();
-renderCards("cards2",0,5);
-renderCards("cards3",5,9);
+renderCards("cards1",0,3);
+renderCards("cards2",3,6);
+renderCards("cards3",6,9);
 goTo(1);
 </script>
 </body>
