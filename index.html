@@ -646,9 +646,18 @@ const fmt=v=>v&&String(v).trim()?v:"—";
 function renderReview(){
   const s=state,gradeTiles=COMPS.map((c,i)=>
     `<div class="gt"><p>${c.code}</p><p>${s.comps[i].grade??"—"}</p></div>`).join("");
+  const coverageTiles=COMPS.map((c,i)=>{
+    const obsCount=s.comps[i].obs.filter(o=>o.seen).length;
+    const appCount=s.comps[i].obs.filter(o=>o.app).length;
+    return `<div class="gt"><p>${c.code}</p><p>${obsCount}/${appCount}</p></div>`;
+  }).join("");
   const perComp=COMPS.map((c,i)=>s.comps[i].comments.trim()?
     `<div class="kv"><span class="k">${c.code} note</span><span class="v" style="font-weight:400;max-width:70%">${s.comps[i].comments}</span></div>`:"").join("");
   document.getElementById("review").innerHTML=`
+  <div class="card">
+    <div class="chead"><div><span class="cname">Observation Coverage</span><div class="lbl" style="margin:2px 0 0">Observed / Applicable</div></div></div>
+    <div class="gtiles">${coverageTiles}</div>
+  </div>
   <div class="card">
     <div class="chead"><span class="cname">Competency grades</span></div>
     <div class="gtiles">${gradeTiles}</div>
