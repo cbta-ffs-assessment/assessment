@@ -49,7 +49,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Robot
 .seg button:last-child{border-right:none}
 .seg button.sel{background:var(--red);color:#fff;font-weight:500}
 .seg button.sel.sat{background:#4B7B63;color:#fff}
-select,input[type=text],input[type=email],textarea{appearance:none;font:inherit;background:#fff;border:0.5px solid var(--bd);color:var(--ink);border-radius:9px;padding:10px 12px;font-size:14px;min-height:42px;outline:none;width:100%}
+select,input[type=text],input[type=email],input[type=time],textarea{appearance:none;font:inherit;background:#fff;border:0.5px solid var(--bd);color:var(--ink);border-radius:9px;padding:10px 12px;font-size:14px;min-height:42px;outline:none;width:100%}
 select{padding-right:32px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A98546' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 11px center;cursor:pointer}
 select:focus,input:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(199,162,101,0.18)}
 textarea{min-height:72px;resize:vertical;line-height:1.5;font-size:13px}
@@ -254,6 +254,35 @@ button.primary:active{background:var(--red-dark)}
           <select data-bind="session.reg">
             <option>S75</option><option>S76</option>
           </select>
+        </div>
+      </div>
+
+      <div style="margin-bottom:18px">
+        <div style="display:flex;gap:18px;flex-wrap:nowrap;align-items:flex-start">
+          <div style="flex:0 0 auto">
+            <span class="lbl">Session date (UTC)</span>
+            <input type="text" id="sessionDate" data-bind="session.date" inputmode="numeric" maxlength="10" placeholder="DD/MM/YYYY" style="width:132px">
+          </div>
+          <div style="flex:0 0 auto">
+            <span class="lbl">From (UTC)</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <select id="fromHH" aria-label="From hour (UTC, 24-hour)" style="width:76px"></select>
+              <span style="color:var(--mut);font-weight:600">:</span>
+              <select id="fromMM" aria-label="From minute (UTC)" style="width:76px"></select>
+            </div>
+          </div>
+          <div style="flex:0 0 auto">
+            <span class="lbl">To (UTC)</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <select id="toHH" aria-label="To hour (UTC, 24-hour)" style="width:76px"></select>
+              <span style="color:var(--mut);font-weight:600">:</span>
+              <select id="toMM" aria-label="To minute (UTC)" style="width:76px"></select>
+            </div>
+          </div>
+          <div style="flex:0 0 auto">
+            <span class="lbl">Total</span>
+            <input type="text" id="sessionTotalTime" readonly placeholder="—" style="width:140px">
+          </div>
         </div>
       </div>
 
@@ -555,8 +584,13 @@ const COMPS=[
 ];
 
 /* ════════ State (in-memory only) ════════ */
+function todayUTCddmmyyyy(){
+  const n=new Date();
+  const dd=String(n.getUTCDate()).padStart(2,"0"),mm=String(n.getUTCMonth()+1).padStart(2,"0");
+  return dd+"/"+mm+"/"+n.getUTCFullYear();
+}
 const state={
-  session:{aircraft:"A350",training:"REC 04",centre:"AITC Gurugram",reg:"S75"},
+  session:{aircraft:"A350",training:"REC 04",centre:"AITC Gurugram",reg:"S75",date:todayUTCddmmyyyy(),from:"",to:"",totalTime:""},
   trainee:{name:"",email:"",role:"P1",seat:"LHS",license:"",licenseNo:"",emp:""},
   trainer:{name:"",email:"",license:"",licenseNo:"",emp:""},
   comps:COMPS.map(c=>({grade:null,comments:"",obs:c.obs.map(()=>({app:true,seen:true}))})),
@@ -583,6 +617,40 @@ document.querySelectorAll("[data-bind]").forEach(el=>{
   el.value=getPath(el.dataset.bind);
   el.addEventListener("input",()=>setPath(el.dataset.bind,el.value));
 });
+
+/* ════════ Session total time (auto-calculated from Session from / Session to, UTC) ════════ */
+function recalcSessionTotalTime(){
+  const disp=document.getElementById("sessionTotalTime");
+  const from=state.session.from,to=state.session.to;
+  if(!from||!to){state.session.totalTime="";disp.value="";return;}
+  const[fh,fm]=from.split(":").map(Number),[th,tm]=to.split(":").map(Number);
+  let mins=(th*60+tm)-(fh*60+fm);
+  if(mins<0)mins+=1440; // TO earlier than FROM = TO falls on the following UTC day
+  const text=Math.floor(mins/60)+" hr "+(mins%60)+" min";
+  state.session.totalTime=text;
+  disp.value=text;
+}
+
+/* From/To (UTC) — plain, locale-independent 00–23 / 00–59 dropdowns. Native
+   type=time pickers render AM/PM on 12-hour-locale devices, which this
+   feature must never show, so hours and minutes are built here as selects. */
+function populateDigits(sel,count){
+  let opts='<option value="">--</option>';
+  for(let i=0;i<count;i++){const v=String(i).padStart(2,"0");opts+=`<option value="${v}">${v}</option>`;}
+  sel.innerHTML=opts;
+}
+["fromHH","toHH"].forEach(id=>populateDigits(document.getElementById(id),24));
+["fromMM","toMM"].forEach(id=>populateDigits(document.getElementById(id),60));
+
+function syncTimeField(prefix,path){
+  const hh=document.getElementById(prefix+"HH").value,mm=document.getElementById(prefix+"MM").value;
+  state.session[path]=(hh&&mm)?(hh+":"+mm):"";
+  recalcSessionTotalTime();
+}
+document.getElementById("fromHH").addEventListener("change",()=>syncTimeField("from","from"));
+document.getElementById("fromMM").addEventListener("change",()=>syncTimeField("from","from"));
+document.getElementById("toHH").addEventListener("change",()=>syncTimeField("to","to"));
+document.getElementById("toMM").addEventListener("change",()=>syncTimeField("to","to"));
 
 /* ════════ Page 1 checklist (PRO · COM · FPA) ════════ */
 /* renderP1() removed — Page 1 competencies now render via renderCards("cards1",0,3), see below */
