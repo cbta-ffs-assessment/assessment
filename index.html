@@ -719,7 +719,8 @@ function renderReview(){
   const coverageTiles=COMPS.map((c,i)=>{
     const obsCount=s.comps[i].obs.filter(o=>o.seen).length;
     const appCount=s.comps[i].obs.filter(o=>o.app).length;
-    return `<div class="gt"><p>${c.code}</p><p>${obsCount}/${appCount}</p></div>`;
+    const pct=appCount?Math.round((obsCount/appCount)*100)+"%":"—";
+    return `<div class="gt"><p>${c.code}</p><p>${pct}</p></div>`;
   }).join("");
   const perComp=COMPS.map((c,i)=>s.comps[i].comments.trim()?
     `<div class="kv"><span class="k">${c.code} note</span><span class="v" style="font-weight:400;max-width:70%">${s.comps[i].comments}</span></div>`:"").join("");
