@@ -49,7 +49,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Robot
 .seg button:last-child{border-right:none}
 .seg button.sel{background:var(--red);color:#fff;font-weight:500}
 .seg button.sel.sat{background:#4B7B63;color:#fff}
-select,input[type=text],input[type=email],input[type=time],textarea{appearance:none;font:inherit;background:#fff;border:0.5px solid var(--bd);color:var(--ink);border-radius:9px;padding:10px 12px;font-size:14px;min-height:42px;outline:none;width:100%}
+select,input[type=text],input[type=email],input[type=time],input[type=password],textarea{appearance:none;font:inherit;background:#fff;border:0.5px solid var(--bd);color:var(--ink);border-radius:9px;padding:10px 12px;font-size:14px;min-height:42px;outline:none;width:100%}
 select{padding-right:32px;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23A98546' stroke-width='2'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 11px center;cursor:pointer}
 select:focus,input:focus,textarea:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(199,162,101,0.18)}
 textarea{min-height:72px;resize:vertical;line-height:1.5;font-size:13px}
@@ -202,6 +202,23 @@ button.primary:active{background:var(--red-dark)}
 .logoplate img{height:26px;display:block}
 .verfoot{max-width:1120px;margin:12px auto 0;text-align:center;font-size:11px;letter-spacing:0.12em;color:var(--mut);text-transform:uppercase;font-family:'AirIndia',-apple-system,sans-serif}
 @media print{.vista{opacity:0.04 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+.footAdmin{max-width:1120px;margin:40px auto 0;text-align:center}
+.footAdmin .rule{height:0.5px;background:var(--line)}
+.footAdmin button{appearance:none;border:none;background:none;font:inherit;font-size:12px;color:var(--mut);cursor:pointer;padding:14px 12px 4px;display:inline-block}
+.footAdmin button:hover{color:var(--sub)}
+.dlgBackdrop{position:fixed;inset:0;background:rgba(34,31,28,0.4);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.dlgBackdrop.open{display:flex}
+.dlgCard{width:100%;max-width:340px}
+.dlgErr{font-size:12.5px;color:var(--red);min-height:16px;margin:8px 0 2px}
+.listrow{display:flex;align-items:center;gap:6px;padding:9px 0;border-bottom:0.5px solid var(--line-soft);flex-wrap:wrap}
+.listrow:last-child{border-bottom:none}
+.listrow .itxt{flex:1;font-size:14px;color:var(--ink);min-width:120px}
+.listrow input[type=text]{flex:1;min-height:36px;padding:7px 10px;font-size:14px;min-width:120px}
+.iconbtn{appearance:none;border:0.5px solid var(--bd);background:#fff;color:var(--sub);font:inherit;font-size:12.5px;min-height:34px;border-radius:8px;cursor:pointer;padding:0 10px;white-space:nowrap}
+.iconbtn.danger{color:var(--red);border-color:var(--red)}
+.iconbtn.primaryish{background:var(--red);border-color:var(--red);color:#fff}
+.addrow{display:flex;gap:8px;padding-top:12px}
+.addrow input[type=text]{flex:1}
 </style>
 </head>
 <body>
@@ -240,19 +257,16 @@ button.primary:active{background:var(--red-dark)}
         <div>
           <span class="lbl">Type of training</span>
           <select data-bind="session.training">
-            <option>REC 04</option><option>UPRT</option>
           </select>
         </div>
         <div>
           <span class="lbl">Simulator centre · Level D</span>
           <select data-bind="session.centre">
-            <option>AITC Gurugram</option><option>FSTC Gurugram</option>
           </select>
         </div>
         <div>
           <span class="lbl">Simulator registration</span>
           <select data-bind="session.reg">
-            <option>S75</option><option>S76</option>
           </select>
         </div>
       </div>
@@ -469,6 +483,10 @@ button.primary:active{background:var(--red-dark)}
         <button class="nav primary" id="submitBtn"><span class="arrow">✓</span> Submit assessment</button>
       </div>
     </div>
+    <div class="footAdmin">
+      <div class="rule"></div>
+      <button type="button" id="adminGearLink">⚙ Administration</button>
+    </div>
   </section>
 
   <!-- ═══ CONFIRMATION ═══ -->
@@ -487,11 +505,140 @@ button.primary:active{background:var(--red-dark)}
     </div>
   </section>
 
+  <!-- ═══ ADMINISTRATION (reached only via the Page 4 link + password) ═══ -->
+  <section class="page" id="pageAdmin">
+    <div class="body">
+      <p class="ptitle">Administration</p>
+      <div class="grule"></div>
+      <p style="font-size:13px;color:var(--mut);margin-bottom:16px">
+        Manage the Training Type, Simulator Centre and Simulator Registration options offered on
+        Page 1 of the assessment form. Aircraft Type is fixed and cannot be edited here.
+      </p>
+
+      <div class="card">
+        <div class="chead"><span class="cname">Training types</span></div>
+        <div class="pad">
+          <div id="listTrainingTypes"></div>
+          <div class="addrow">
+            <input type="text" id="addTrainingTypes" placeholder="New training type">
+            <button class="iconbtn primaryish" data-add="trainingTypes">➕ Add Training Type</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="chead"><span class="cname">Simulator centres</span></div>
+        <div class="pad">
+          <div id="listSimulatorCentres"></div>
+          <div class="addrow">
+            <input type="text" id="addSimulatorCentres" placeholder="New simulator centre">
+            <button class="iconbtn primaryish" data-add="simulatorCentres">➕ Add Simulator Centre</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="chead"><span class="cname">Simulator registrations</span></div>
+        <div class="pad">
+          <div id="listSimulatorRegistrations"></div>
+          <div class="addrow">
+            <input type="text" id="addSimulatorRegistrations" placeholder="New simulator registration">
+            <button class="iconbtn primaryish" data-add="simulatorRegistrations">➕ Add Simulator Registration</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="foot">
+      <div class="dots"></div>
+      <div class="btns">
+        <button class="nav ghost" id="adminCancelBtn">Cancel</button>
+        <button class="nav primary" id="adminSaveBtn">Save changes</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ LOGIN DIALOG ═══ -->
+  <div class="dlgBackdrop" id="loginDlgBackdrop">
+    <div class="card dlgCard">
+      <div class="chead"><span class="cname">Administrator Login</span></div>
+      <div class="pad">
+        <span class="lbl">Password</span>
+        <input type="password" id="loginDlgPassword" autocomplete="off">
+        <p class="dlgErr" id="loginDlgError"></p>
+        <div style="display:flex;gap:10px;margin-top:6px">
+          <button class="nav ghost" id="loginDlgCancel" style="flex:1">Cancel</button>
+          <button class="nav primary" id="loginDlgSubmit" style="flex:1">Login</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ DELETE CONFIRMATION DIALOG ═══ -->
+  <div class="dlgBackdrop" id="deleteDlgBackdrop">
+    <div class="card dlgCard">
+      <div class="chead"><span class="cname">Confirm delete</span></div>
+      <div class="pad">
+        <p id="deleteDlgMessage" style="font-size:14px;color:var(--ink);margin-bottom:14px">Delete this item?</p>
+        <div style="display:flex;gap:10px">
+          <button class="nav ghost" id="deleteDlgCancel" style="flex:1">Cancel</button>
+          <button class="nav primary" id="deleteDlgConfirm" style="flex:1;background:var(--red)">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 </div>
 <p class="verfoot">Air India CBTA Assessment Version 1.0 RC1 · Internal Review Only</p>
 
 <script>
+/* ════════════════════════════════════════════════════════════════════
+   SETTINGS STORAGE LAYER
+   ────────────────────────────────────────────────────────────────────
+   loadSettings() and saveSettings() are the ONLY functions in this
+   application permitted to read or write configuration data. No other
+   code accesses Local Storage directly.
+
+   TODAY:   the storage backend is browser Local Storage.
+   FUTURE:  this can be replaced with Microsoft OneDrive / Excel by
+            rewriting the two functions below only. Every caller already
+            treats them as asynchronous, so nothing else changes.
+   ════════════════════════════════════════════════════════════════════ */
+const ALTUS_SETTINGS_KEY = "altusSettings";
+const ALTUS_DEFAULT_SETTINGS = {
+  trainingTypes: ["REC 04", "UPRT"],
+  simulatorCentres: ["AITC Gurugram", "FSTC Gurugram"],
+  simulatorRegistrations: ["S75", "S76"]
+};
+async function loadSettings(){
+  try{
+    const raw = localStorage.getItem(ALTUS_SETTINGS_KEY);
+    if(!raw) return JSON.parse(JSON.stringify(ALTUS_DEFAULT_SETTINGS));
+    const parsed = JSON.parse(raw);
+    return {
+      trainingTypes: Array.isArray(parsed.trainingTypes) && parsed.trainingTypes.length ? parsed.trainingTypes : ALTUS_DEFAULT_SETTINGS.trainingTypes.slice(),
+      simulatorCentres: Array.isArray(parsed.simulatorCentres) && parsed.simulatorCentres.length ? parsed.simulatorCentres : ALTUS_DEFAULT_SETTINGS.simulatorCentres.slice(),
+      simulatorRegistrations: Array.isArray(parsed.simulatorRegistrations) && parsed.simulatorRegistrations.length ? parsed.simulatorRegistrations : ALTUS_DEFAULT_SETTINGS.simulatorRegistrations.slice()
+    };
+  }catch(err){
+    console.error("loadSettings() failed, using defaults:", err);
+    return JSON.parse(JSON.stringify(ALTUS_DEFAULT_SETTINGS));
+  }
+}
+async function saveSettings(settings){
+  try{
+    localStorage.setItem(ALTUS_SETTINGS_KEY, JSON.stringify(settings));
+    return true;
+  }catch(err){
+    console.error("saveSettings() failed:", err);
+    return false;
+  }
+}
+
+/* Administrator password — stored in this one place only. */
+const ADMIN_PASSWORD = "Admin@123";
+
+(async function(){
 /* ════════ Data ════════ */
 const COMPS=[
  {code:"PRO",name:"Application of procedures and compliance with regulations",def:"Identifies and applies appropriate procedures and regulations.",obs:[
@@ -611,6 +758,20 @@ function seg(el,options,path){
 seg(document.getElementById("segAircraft"),["A320","A350","B787","B777"],"session.aircraft");
 seg(document.getElementById("segRole"),["P1","P2"],"trainee.role");
 seg(document.getElementById("segSeat"),["LHS","RHS"],"trainee.seat");
+
+/* ════════ Assessment-form dropdowns sourced from settings ════════ */
+function populateSelect(sel, items, keepValue){
+  const prev = keepValue ? sel.value : null;
+  sel.innerHTML = items.map(v=>`<option>${v}</option>`).join("");
+  if(prev && items.includes(prev)) sel.value = prev;
+}
+async function refreshAssessmentDropdowns(keepValue){
+  const settings = await loadSettings();
+  populateSelect(document.querySelector('[data-bind="session.training"]'), settings.trainingTypes, keepValue);
+  populateSelect(document.querySelector('[data-bind="session.centre"]'), settings.simulatorCentres, keepValue);
+  populateSelect(document.querySelector('[data-bind="session.reg"]'), settings.simulatorRegistrations, keepValue);
+}
+await refreshAssessmentDropdowns(false);
 
 /* ════════ Two-way bound fields ════════ */
 document.querySelectorAll("[data-bind]").forEach(el=>{
@@ -833,7 +994,8 @@ function goTo(n){
   if(n===2)renderCards("cards2",3,6);
   if(n===3)renderCards("cards3",6,9);
   if(n===4)renderReview();
-  document.getElementById(n==="done"?"pageDone":"page"+n).classList.add("active");
+  if(n==="admin")renderAdminLists();
+  document.getElementById(n==="done"?"pageDone":n==="admin"?"pageAdmin":"page"+n).classList.add("active");
   current=n;
   window.scrollTo({top:0,behavior:"instant"});
   if(n===4)requestAnimationFrame(()=>{sizePad("Trainer");sizePad("Trainee");});
@@ -946,6 +1108,148 @@ renderCards("cards1",0,3);
 renderCards("cards2",3,6);
 renderCards("cards3",6,9);
 goTo(1);
+
+/* ════════ Administrator login (gates navigation to the Administration page) ════════ */
+const loginDlgBackdrop = document.getElementById("loginDlgBackdrop");
+const loginDlgPassword = document.getElementById("loginDlgPassword");
+const loginDlgError = document.getElementById("loginDlgError");
+
+function openLoginDialog(){
+  loginDlgError.textContent = "";
+  loginDlgPassword.value = "";
+  loginDlgBackdrop.classList.add("open");
+  loginDlgPassword.focus();
+}
+function closeLoginDialog(){
+  loginDlgBackdrop.classList.remove("open");
+}
+function attemptLogin(){
+  if(loginDlgPassword.value === ADMIN_PASSWORD){
+    closeLoginDialog();
+    goTo("admin");
+  } else {
+    loginDlgError.textContent = "Incorrect Password";
+    loginDlgPassword.value = "";
+    loginDlgPassword.focus();
+  }
+}
+document.getElementById("adminGearLink").addEventListener("click", openLoginDialog);
+document.getElementById("loginDlgCancel").addEventListener("click", closeLoginDialog);
+document.getElementById("loginDlgSubmit").addEventListener("click", attemptLogin);
+loginDlgPassword.addEventListener("keydown", e=>{ if(e.key==="Enter") attemptLogin(); });
+loginDlgBackdrop.addEventListener("click", e=>{ if(e.target===loginDlgBackdrop) closeLoginDialog(); });
+
+/* ════════ Administration page: list editing ════════ */
+let workingSettings = null;
+const LIST_FIELDS = ["trainingTypes","simulatorCentres","simulatorRegistrations"];
+const LIST_CONTAINER_ID = {
+  trainingTypes: "listTrainingTypes",
+  simulatorCentres: "listSimulatorCentres",
+  simulatorRegistrations: "listSimulatorRegistrations"
+};
+
+async function renderAdminLists(){
+  workingSettings = await loadSettings();
+  LIST_FIELDS.forEach(renderAdminList);
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function renderAdminList(field){
+  const host = document.getElementById(LIST_CONTAINER_ID[field]);
+  const items = workingSettings[field];
+  host.innerHTML = items.map((item,i)=>`
+    <div class="listrow" data-field="${field}" data-index="${i}">
+      <span class="itxt">${escapeHtml(item)}</span>
+      <button class="iconbtn" data-act="edit">✏ Edit</button>
+      <button class="iconbtn danger" data-act="delete">🗑 Delete</button>
+      <button class="iconbtn" data-act="up" ${i===0?"disabled":""}>⬆ Move Up</button>
+      <button class="iconbtn" data-act="down" ${i===items.length-1?"disabled":""}>⬇ Move Down</button>
+    </div>
+  `).join("") || `<p style="font-size:13px;color:var(--mut);padding:8px 0">No items yet — add one below.</p>`;
+}
+
+/* Add */
+document.querySelectorAll("[data-add]").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    const field = btn.dataset.add;
+    const input = document.getElementById("add"+field.charAt(0).toUpperCase()+field.slice(1));
+    const val = input.value.trim();
+    if(!val) return;
+    workingSettings[field].push(val);
+    input.value = "";
+    renderAdminList(field);
+  });
+});
+
+/* Edit / Move Up / Move Down / Delete (delete requires confirmation) */
+let pendingDelete = null; // {field, index}
+const deleteDlgBackdrop = document.getElementById("deleteDlgBackdrop");
+const deleteDlgMessage = document.getElementById("deleteDlgMessage");
+
+document.addEventListener("click",(e)=>{
+  const btn = e.target.closest("[data-act]");
+  if(!btn) return;
+  const row = btn.closest(".listrow");
+  if(!row) return;
+  const field = row.dataset.field;
+  const i = parseInt(row.dataset.index,10);
+  const act = btn.dataset.act;
+
+  if(act==="up" && i>0){
+    [workingSettings[field][i-1], workingSettings[field][i]] = [workingSettings[field][i], workingSettings[field][i-1]];
+    renderAdminList(field);
+  } else if(act==="down" && i<workingSettings[field].length-1){
+    [workingSettings[field][i+1], workingSettings[field][i]] = [workingSettings[field][i], workingSettings[field][i+1]];
+    renderAdminList(field);
+  } else if(act==="edit"){
+    row.innerHTML = `
+      <input type="text" value="${escapeHtml(workingSettings[field][i])}">
+      <button class="iconbtn primaryish" data-act="save-edit">Save</button>
+      <button class="iconbtn" data-act="cancel-edit">Cancel</button>
+    `;
+    row.querySelector("input").focus();
+  } else if(act==="save-edit"){
+    const val = row.querySelector("input").value.trim();
+    if(val) workingSettings[field][i] = val;
+    renderAdminList(field);
+  } else if(act==="cancel-edit"){
+    renderAdminList(field);
+  } else if(act==="delete"){
+    pendingDelete = {field, index:i};
+    deleteDlgMessage.textContent = `Delete "${workingSettings[field][i]}"?`;
+    deleteDlgBackdrop.classList.add("open");
+  }
+});
+document.getElementById("deleteDlgCancel").addEventListener("click", ()=>{
+  pendingDelete = null;
+  deleteDlgBackdrop.classList.remove("open");
+});
+document.getElementById("deleteDlgConfirm").addEventListener("click", ()=>{
+  if(pendingDelete){
+    workingSettings[pendingDelete.field].splice(pendingDelete.index,1);
+    renderAdminList(pendingDelete.field);
+    pendingDelete = null;
+  }
+  deleteDlgBackdrop.classList.remove("open");
+});
+deleteDlgBackdrop.addEventListener("click", e=>{
+  if(e.target===deleteDlgBackdrop){ pendingDelete=null; deleteDlgBackdrop.classList.remove("open"); }
+});
+
+/* Cancel / Save changes */
+document.getElementById("adminCancelBtn").addEventListener("click", ()=>{
+  goTo(4);
+});
+document.getElementById("adminSaveBtn").addEventListener("click", async ()=>{
+  const ok = await saveSettings(workingSettings);
+  if(ok) await refreshAssessmentDropdowns(true);
+  goTo(4);
+});
+
+})();
 </script>
 </body>
 </html>
