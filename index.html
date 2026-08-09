@@ -507,8 +507,9 @@ button.primary:active{background:var(--red-dark)}
       <p class="ptitle">Administration</p>
       <div class="grule"></div>
       <p style="font-size:13px;color:var(--mut);margin-bottom:16px">
-        Manage the Training Type, Simulator Centre and Simulator Registration options offered on
-        Page 1 of the assessment form. Aircraft Type is fixed and cannot be edited here.
+        Manage the Training Type, Simulator Centre, per-fleet Simulator Registration options, and
+        notification recipients offered on Page 1 of the assessment form. Aircraft Type is fixed
+        and cannot be edited here.
       </p>
 
       <div class="card">
@@ -534,12 +535,25 @@ button.primary:active{background:var(--red-dark)}
       </div>
 
       <div class="card">
-        <div class="chead"><span class="cname">Simulator registrations</span></div>
+        <div class="chead"><span class="cname">Fleet simulator registrations</span></div>
         <div class="pad">
-          <div id="listSimulatorRegistrations"></div>
+          <div class="seg" id="fleetTabs" style="margin-bottom:14px"></div>
+          <div id="fleetRegList"></div>
           <div class="addrow">
-            <input type="text" id="addSimulatorRegistrations" placeholder="New simulator registration">
-            <button class="iconbtn primaryish" data-add="simulatorRegistrations">➕ Add Simulator Registration</button>
+            <input type="text" id="addFleetReg" placeholder="New simulator registration">
+            <button class="iconbtn primaryish" id="addFleetRegBtn">➕ Add Simulator Registration</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="chead"><span class="cname">Permanent notification recipients</span></div>
+        <div class="pad">
+          <p style="font-size:12.5px;color:var(--mut);margin-bottom:10px">Configuration only at this stage — these addresses are stored centrally but no email is sent from here yet.</p>
+          <div id="listNotificationRecipients"></div>
+          <div class="addrow">
+            <input type="text" id="addNotificationRecipients" placeholder="New email address" inputmode="email">
+            <button class="iconbtn primaryish" data-add="notificationRecipients">➕ Add Email Address</button>
           </div>
         </div>
       </div>
@@ -588,6 +602,11 @@ button.primary:active{background:var(--red-dark)}
 <p class="verfoot">CBTA FFS Assessment Version 1.0 RC1 · Internal Review Only</p>
 
 <script>
+/* ════════ Backend connection ════════
+   The shared Administration settings and every assessment submission
+   both go through this one deployed Google Apps Script Web App URL. */
+const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzhkCzbpxTFUxIeYIbSXPIExaq4BZe30IOyYPMYzW7chv99kvuISDJorireOsN6a4aBSA/exec";
+
 /* ════════════════════════════════════════════════════════════════════
    SETTINGS STORAGE LAYER
    ────────────────────────────────────────────────────────────────────
@@ -600,31 +619,59 @@ button.primary:active{background:var(--red-dark)}
             rewriting the two functions below only. Every caller already
             treats them as asynchronous, so nothing else changes.
    ════════════════════════════════════════════════════════════════════ */
-const CBTA_SETTINGS_KEY = "cbtaSettings";
+/* ════════════════════════════════════════════════════════════════════
+   SETTINGS STORAGE LAYER
+   ────────────────────────────────────────────────────────────────────
+   loadSettings() and saveSettings() are the ONLY functions in this
+   application permitted to read or write configuration data. No other
+   code accesses the storage backend directly.
+
+   These settings are shared centrally through the Apps Script backend
+   (stored in the same Google Spreadsheet) so every instructor's form
+   reads the same configuration, and an administrator's changes apply
+   for everyone as soon as they reload. Local Storage is not used for
+   this shared configuration.
+   ════════════════════════════════════════════════════════════════════ */
 const CBTA_DEFAULT_SETTINGS = {
   trainingTypes: ["REC 04", "UPRT"],
   simulatorCentres: ["AITC Gurugram", "FSTC Gurugram"],
-  simulatorRegistrations: ["S75", "S76"]
+  fleetRegistrations: { A320: [], A350: [], B787: [], B777: [] },
+  notificationRecipients: []
 };
+function normalizeLoadedSettings_(raw){
+  const fr = (raw && raw.fleetRegistrations && typeof raw.fleetRegistrations==="object") ? raw.fleetRegistrations : {};
+  return {
+    trainingTypes: (raw && Array.isArray(raw.trainingTypes) && raw.trainingTypes.length) ? raw.trainingTypes : CBTA_DEFAULT_SETTINGS.trainingTypes.slice(),
+    simulatorCentres: (raw && Array.isArray(raw.simulatorCentres) && raw.simulatorCentres.length) ? raw.simulatorCentres : CBTA_DEFAULT_SETTINGS.simulatorCentres.slice(),
+    fleetRegistrations: {
+      A320: Array.isArray(fr.A320) ? fr.A320 : [],
+      A350: Array.isArray(fr.A350) ? fr.A350 : [],
+      B787: Array.isArray(fr.B787) ? fr.B787 : [],
+      B777: Array.isArray(fr.B777) ? fr.B777 : []
+    },
+    notificationRecipients: (raw && Array.isArray(raw.notificationRecipients)) ? raw.notificationRecipients : []
+  };
+}
 async function loadSettings(){
   try{
-    const raw = localStorage.getItem(CBTA_SETTINGS_KEY);
-    if(!raw) return JSON.parse(JSON.stringify(CBTA_DEFAULT_SETTINGS));
-    const parsed = JSON.parse(raw);
-    return {
-      trainingTypes: Array.isArray(parsed.trainingTypes) && parsed.trainingTypes.length ? parsed.trainingTypes : CBTA_DEFAULT_SETTINGS.trainingTypes.slice(),
-      simulatorCentres: Array.isArray(parsed.simulatorCentres) && parsed.simulatorCentres.length ? parsed.simulatorCentres : CBTA_DEFAULT_SETTINGS.simulatorCentres.slice(),
-      simulatorRegistrations: Array.isArray(parsed.simulatorRegistrations) && parsed.simulatorRegistrations.length ? parsed.simulatorRegistrations : CBTA_DEFAULT_SETTINGS.simulatorRegistrations.slice()
-    };
+    const res = await fetch(APPS_SCRIPT_URL + "?action=getSettings");
+    const data = await res.json();
+    if(data && data.status==="ok" && data.settings) return normalizeLoadedSettings_(data.settings);
+    return normalizeLoadedSettings_(CBTA_DEFAULT_SETTINGS);
   }catch(err){
     console.error("loadSettings() failed, using defaults:", err);
-    return JSON.parse(JSON.stringify(CBTA_DEFAULT_SETTINGS));
+    return normalizeLoadedSettings_(CBTA_DEFAULT_SETTINGS);
   }
 }
 async function saveSettings(settings){
   try{
-    localStorage.setItem(CBTA_SETTINGS_KEY, JSON.stringify(settings));
-    return true;
+    const res = await fetch(APPS_SCRIPT_URL,{
+      method:"POST",
+      headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify({action:"saveSettings", settings:settings})
+    });
+    const data = await res.json();
+    return !!(data && data.status==="ok");
   }catch(err){
     console.error("saveSettings() failed:", err);
     return false;
@@ -733,7 +780,7 @@ function todayUTCddmmyyyy(){
   return dd+"/"+mm+"/"+n.getUTCFullYear();
 }
 const state={
-  session:{aircraft:"A350",training:"REC 04",centre:"AITC Gurugram",reg:"S75",date:todayUTCddmmyyyy(),from:"",to:"",totalTime:""},
+  session:{aircraft:"A350",training:"REC 04",centre:"AITC Gurugram",reg:"",date:todayUTCddmmyyyy(),from:"",to:"",totalTime:""},
   trainee:{name:"",email:"",role:"P1",seat:"LHS",license:"",licenseNo:"",emp:""},
   trainer:{name:"",email:"",license:"",licenseNo:"",emp:""},
   comps:COMPS.map(c=>({grade:null,comments:"",obs:c.obs.map(()=>({app:true,seen:true}))})),
@@ -752,6 +799,12 @@ function seg(el,options,path){
   paint();
 }
 seg(document.getElementById("segAircraft"),["A320","A350","B787","B777"],"session.aircraft");
+document.getElementById("segAircraft").addEventListener("click", async (e)=>{
+  const b=e.target.closest("button");
+  if(!b) return;
+  const settings = await loadSettings();
+  populateRegSelect(state.session.aircraft, settings, false); // fleet changed — never keep the previous registration
+});
 seg(document.getElementById("segRole"),["P1","P2"],"trainee.role");
 seg(document.getElementById("segSeat"),["LHS","RHS"],"trainee.seat");
 
@@ -761,11 +814,30 @@ function populateSelect(sel, items, keepValue){
   sel.innerHTML = items.map(v=>`<option>${v}</option>`).join("");
   if(prev && items.includes(prev)) sel.value = prev;
 }
+function populateRegSelect(fleet, settings, keepValue){
+  const sel = document.querySelector('[data-bind="session.reg"]');
+  const list = (settings.fleetRegistrations && settings.fleetRegistrations[fleet]) || [];
+  const prev = keepValue ? sel.value : null;
+  if(list.length){
+    sel.innerHTML = list.map(v=>`<option>${v}</option>`).join("");
+    sel.disabled = false;
+    if(prev && list.includes(prev)){
+      sel.value = prev;
+    } else {
+      sel.value = list[0];
+      setPath("session.reg", sel.value);
+    }
+  } else {
+    sel.innerHTML = `<option value="" disabled selected>No simulator registrations configured</option>`;
+    sel.disabled = true;
+    setPath("session.reg", "");
+  }
+}
 async function refreshAssessmentDropdowns(keepValue){
   const settings = await loadSettings();
   populateSelect(document.querySelector('[data-bind="session.training"]'), settings.trainingTypes, keepValue);
   populateSelect(document.querySelector('[data-bind="session.centre"]'), settings.simulatorCentres, keepValue);
-  populateSelect(document.querySelector('[data-bind="session.reg"]'), settings.simulatorRegistrations, keepValue);
+  populateRegSelect(state.session.aircraft, settings, keepValue);
 }
 await refreshAssessmentDropdowns(false);
 
@@ -997,11 +1069,6 @@ function goTo(n){
   if(n===4)requestAnimationFrame(()=>{sizePad("Trainer");sizePad("Trainee");});
 }
 
-/* ════════ Backend connection ════════
-   Paste your deployed Google Apps Script Web App URL between the quotes below.
-   Instructions for obtaining this URL are in the accompanying setup guide.   */
-const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzhkCzbpxTFUxIeYIbSXPIExaq4BZe30IOyYPMYzW7chv99kvuISDJorireOsN6a4aBSA/exec";
-
 function setStatus(msg,tone){
   const el=document.getElementById("formStatus");
   el.textContent=msg;
@@ -1137,16 +1204,20 @@ loginDlgBackdrop.addEventListener("click", e=>{ if(e.target===loginDlgBackdrop) 
 
 /* ════════ Administration page: list editing ════════ */
 let workingSettings = null;
-const LIST_FIELDS = ["trainingTypes","simulatorCentres","simulatorRegistrations"];
+const LIST_FIELDS = ["trainingTypes","simulatorCentres","notificationRecipients"];
 const LIST_CONTAINER_ID = {
   trainingTypes: "listTrainingTypes",
   simulatorCentres: "listSimulatorCentres",
-  simulatorRegistrations: "listSimulatorRegistrations"
+  notificationRecipients: "listNotificationRecipients"
 };
+const FLEETS = ["A320","A350","B787","B777"];
+let currentFleetTab = "A320";
 
 async function renderAdminLists(){
   workingSettings = await loadSettings();
   LIST_FIELDS.forEach(renderAdminList);
+  renderFleetTabs();
+  renderFleetRegList();
 }
 
 function escapeHtml(s){
@@ -1166,6 +1237,42 @@ function renderAdminList(field){
     </div>
   `).join("") || `<p style="font-size:13px;color:var(--mut);padding:8px 0">No items yet — add one below.</p>`;
 }
+
+/* Fleet simulator registrations — same Add/Edit/Delete/Move Up/Move Down
+   pattern as the lists above, scoped to whichever fleet tab is active. */
+function renderFleetTabs(){
+  const host = document.getElementById("fleetTabs");
+  host.innerHTML = FLEETS.map(f=>`<button type="button" data-fleet-tab="${f}" class="${f===currentFleetTab?"sel":""}">${f}</button>`).join("");
+}
+document.getElementById("fleetTabs").addEventListener("click", e=>{
+  const b = e.target.closest("[data-fleet-tab]");
+  if(!b) return;
+  currentFleetTab = b.dataset.fleetTab;
+  renderFleetTabs();
+  renderFleetRegList();
+});
+
+function renderFleetRegList(){
+  const host = document.getElementById("fleetRegList");
+  const items = workingSettings.fleetRegistrations[currentFleetTab];
+  host.innerHTML = items.map((item,i)=>`
+    <div class="listrow" data-fleet="${currentFleetTab}" data-index="${i}">
+      <span class="itxt">${escapeHtml(item)}</span>
+      <button class="iconbtn" data-act="edit">✏ Edit</button>
+      <button class="iconbtn danger" data-act="delete">🗑 Delete</button>
+      <button class="iconbtn" data-act="up" ${i===0?"disabled":""}>⬆ Move Up</button>
+      <button class="iconbtn" data-act="down" ${i===items.length-1?"disabled":""}>⬇ Move Down</button>
+    </div>
+  `).join("") || `<p style="font-size:13px;color:var(--mut);padding:8px 0">No registrations configured for ${currentFleetTab} yet — add one below.</p>`;
+}
+document.getElementById("addFleetRegBtn").addEventListener("click", ()=>{
+  const input = document.getElementById("addFleetReg");
+  const val = input.value.trim();
+  if(!val) return;
+  workingSettings.fleetRegistrations[currentFleetTab].push(val);
+  input.value = "";
+  renderFleetRegList();
+});
 
 /* Add */
 document.querySelectorAll("[data-add]").forEach(btn=>{
@@ -1190,9 +1297,41 @@ document.addEventListener("click",(e)=>{
   if(!btn) return;
   const row = btn.closest(".listrow");
   if(!row) return;
+  const act = btn.dataset.act;
+
+  if(row.dataset.fleet){
+    const fleet = row.dataset.fleet;
+    const i = parseInt(row.dataset.index,10);
+    const list = workingSettings.fleetRegistrations[fleet];
+    if(act==="up" && i>0){
+      [list[i-1], list[i]] = [list[i], list[i-1]];
+      renderFleetRegList();
+    } else if(act==="down" && i<list.length-1){
+      [list[i+1], list[i]] = [list[i], list[i+1]];
+      renderFleetRegList();
+    } else if(act==="edit"){
+      row.innerHTML = `
+        <input type="text" value="${escapeHtml(list[i])}">
+        <button class="iconbtn primaryish" data-act="save-edit">Save</button>
+        <button class="iconbtn" data-act="cancel-edit">Cancel</button>
+      `;
+      row.querySelector("input").focus();
+    } else if(act==="save-edit"){
+      const val = row.querySelector("input").value.trim();
+      if(val) list[i] = val;
+      renderFleetRegList();
+    } else if(act==="cancel-edit"){
+      renderFleetRegList();
+    } else if(act==="delete"){
+      pendingDelete = {fleet, index:i};
+      deleteDlgMessage.textContent = `Delete "${list[i]}"?`;
+      deleteDlgBackdrop.classList.add("open");
+    }
+    return;
+  }
+
   const field = row.dataset.field;
   const i = parseInt(row.dataset.index,10);
-  const act = btn.dataset.act;
 
   if(act==="up" && i>0){
     [workingSettings[field][i-1], workingSettings[field][i]] = [workingSettings[field][i], workingSettings[field][i-1]];
@@ -1225,8 +1364,13 @@ document.getElementById("deleteDlgCancel").addEventListener("click", ()=>{
 });
 document.getElementById("deleteDlgConfirm").addEventListener("click", ()=>{
   if(pendingDelete){
-    workingSettings[pendingDelete.field].splice(pendingDelete.index,1);
-    renderAdminList(pendingDelete.field);
+    if(pendingDelete.fleet){
+      workingSettings.fleetRegistrations[pendingDelete.fleet].splice(pendingDelete.index,1);
+      renderFleetRegList();
+    } else {
+      workingSettings[pendingDelete.field].splice(pendingDelete.index,1);
+      renderAdminList(pendingDelete.field);
+    }
     pendingDelete = null;
   }
   deleteDlgBackdrop.classList.remove("open");
