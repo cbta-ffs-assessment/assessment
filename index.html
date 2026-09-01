@@ -319,7 +319,7 @@ button.primary:active{background:var(--red-dark)}
               <div class="seg" id="segSeat"></div>
             </div>
             <div class="three">
-              <div><span class="lbl">Licence type</span><select data-bind="trainee.license" aria-label="Trainee licence type"><option value=""></option><option>CPL</option><option>ATPL</option><option>FATA</option></select></div>
+              <div><span class="lbl">Licence type</span><select data-bind="trainee.license" aria-label="Trainee licence type"><option value="">Select licence type</option><option>CPL</option><option>ATPL</option><option>FATA</option></select></div>
               <div><span class="lbl">Licence number</span><input type="text" data-bind="trainee.licenseNo" placeholder="Licence no."></div>
               <div><span class="lbl">EMP no.</span><input type="text" data-bind="trainee.emp" placeholder="EMP no."></div>
             </div>
@@ -330,11 +330,18 @@ button.primary:active{background:var(--red-dark)}
             <span class="lbl gold">Trainer</span>
             <input type="text" data-bind="trainer.name" placeholder="Enter trainer name" style="margin-bottom:10px">
             <input type="email" data-bind="trainer.email" placeholder="Instructor email address" style="margin-bottom:10px">
-            <div style="height:42px;margin-bottom:10px;display:flex;align-items:center">
-              <span style="font-size:12px;color:var(--mut)">Simulator instructor</span>
+            <div style="margin-bottom:10px">
+              <span class="lbl">Instructor qualification</span>
+              <select data-bind="trainer.qualification" aria-label="Instructor qualification">
+                <option value="">Select qualification</option>
+                <option value="TRI(A)">TRI(A)</option>
+                <option value="TRI(S)">TRI(S)</option>
+                <option value="SFI">SFI</option>
+                <option value="DE">DE</option>
+              </select>
             </div>
             <div class="three">
-              <div><span class="lbl">Licence type</span><select data-bind="trainer.license" aria-label="Trainer licence type"><option value=""></option><option>CPL</option><option>ATPL</option><option>FATA</option></select></div>
+              <div><span class="lbl">Licence type</span><select data-bind="trainer.license" aria-label="Trainer licence type"><option value="">Select licence type</option><option>CPL</option><option>ATPL</option><option>FATA</option></select></div>
               <div><span class="lbl">Licence number</span><input type="text" data-bind="trainer.licenseNo" placeholder="Licence no."></div>
               <div><span class="lbl">EMP no.</span><input type="text" data-bind="trainer.emp" placeholder="EMP no."></div>
             </div>
@@ -794,7 +801,7 @@ function todayISTddmmyyyy(){
 const state={
   session:{aircraft:"A350",training:"REC 04",centre:"AITC Gurugram",reg:"",date:todayISTddmmyyyy(),from:"",to:"",totalTime:"",downtime:"00:00",actualTrainingTime:""},
   trainee:{name:"",email:"",role:"P1",seat:"LHS",license:"",licenseNo:"",emp:""},
-  trainer:{name:"",email:"",license:"",licenseNo:"",emp:""},
+  trainer:{name:"",email:"",qualification:"",license:"",licenseNo:"",emp:""},
   comps:COMPS.map(c=>({grade:null,comments:"",obs:c.obs.map(()=>({app:true,seen:true}))})),
   remarks:{overall:""},
   outcome:null,pms:null,
