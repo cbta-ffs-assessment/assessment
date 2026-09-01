@@ -314,9 +314,12 @@ button.primary:active{background:var(--red-dark)}
             <span class="lbl gold">Trainee</span>
             <input type="text" data-bind="trainee.name" placeholder="Enter trainee name" style="margin-bottom:10px">
             <input type="email" data-bind="trainee.email" placeholder="Trainee email address" style="margin-bottom:10px">
-            <div style="display:flex;gap:8px;margin-bottom:10px">
-              <div class="seg" id="segRole"></div>
-              <div class="seg" id="segSeat"></div>
+            <div style="margin-bottom:10px">
+              <span class="lbl">Trainee qualification</span>
+              <div style="display:flex;gap:8px">
+                <div class="seg" id="segRole"></div>
+                <div class="seg" id="segSeat"></div>
+              </div>
             </div>
             <div class="three">
               <div><span class="lbl">Licence type</span><select data-bind="trainee.license" aria-label="Trainee licence type"><option value="">Select licence type</option><option>CPL</option><option>ATPL</option><option>FATA</option></select></div>
@@ -332,13 +335,7 @@ button.primary:active{background:var(--red-dark)}
             <input type="email" data-bind="trainer.email" placeholder="Instructor email address" style="margin-bottom:10px">
             <div style="margin-bottom:10px">
               <span class="lbl">Instructor qualification</span>
-              <select data-bind="trainer.qualification" aria-label="Instructor qualification">
-                <option value="">Select qualification</option>
-                <option value="TRI(A)">TRI(A)</option>
-                <option value="TRI(S)">TRI(S)</option>
-                <option value="SFI">SFI</option>
-                <option value="DE">DE</option>
-              </select>
+              <div class="seg" id="segInstructorQualification"></div>
             </div>
             <div class="three">
               <div><span class="lbl">Licence type</span><select data-bind="trainer.license" aria-label="Trainer licence type"><option value="">Select licence type</option><option>CPL</option><option>ATPL</option><option>FATA</option></select></div>
@@ -799,8 +796,8 @@ function todayISTddmmyyyy(){
   return value("day")+"/"+value("month")+"/"+value("year");
 }
 const state={
-  session:{aircraft:"A350",training:"REC 04",centre:"AITC Gurugram",reg:"",date:todayISTddmmyyyy(),from:"",to:"",totalTime:"",downtime:"00:00",actualTrainingTime:""},
-  trainee:{name:"",email:"",role:"P1",seat:"LHS",license:"",licenseNo:"",emp:""},
+  session:{aircraft:"",training:"",centre:"",reg:"",date:todayISTddmmyyyy(),from:"",to:"",totalTime:"",downtime:"00:00",actualTrainingTime:""},
+  trainee:{name:"",email:"",role:"",seat:"",license:"",licenseNo:"",emp:""},
   trainer:{name:"",email:"",qualification:"",license:"",licenseNo:"",emp:""},
   comps:COMPS.map(c=>({grade:null,comments:"",obs:c.obs.map(()=>({app:true,seen:true}))})),
   remarks:{overall:""},
@@ -826,25 +823,32 @@ document.getElementById("segAircraft").addEventListener("click", async (e)=>{
 });
 seg(document.getElementById("segRole"),["P1","P2"],"trainee.role");
 seg(document.getElementById("segSeat"),["LHS","RHS"],"trainee.seat");
+seg(document.getElementById("segInstructorQualification"),["TRI(A)","TRI(S)","SFI","DE"],"trainer.qualification");
 
 /* ════════ Assessment-form dropdowns sourced from settings ════════ */
-function populateSelect(sel, items, keepValue){
+function populateSelect(sel, items, keepValue, prompt){
   const prev = keepValue ? sel.value : null;
-  sel.innerHTML = items.map(v=>`<option>${v}</option>`).join("");
+  sel.innerHTML = `<option value="" disabled selected>${prompt}</option>` + items.map(v=>`<option>${v}</option>`).join("");
   if(prev && items.includes(prev)) sel.value = prev;
 }
 function populateRegSelect(fleet, settings, keepValue){
   const sel = document.querySelector('[data-bind="session.reg"]');
+  if(!fleet){
+    sel.innerHTML = `<option value="" disabled selected>Select aircraft type</option>`;
+    sel.disabled = true;
+    setPath("session.reg", "");
+    return;
+  }
   const list = (settings.fleetRegistrations && settings.fleetRegistrations[fleet]) || [];
   const prev = keepValue ? sel.value : null;
   if(list.length){
-    sel.innerHTML = list.map(v=>`<option>${v}</option>`).join("");
+    sel.innerHTML = `<option value="" disabled selected>Select simulator registration</option>` + list.map(v=>`<option>${v}</option>`).join("");
     sel.disabled = false;
     if(prev && list.includes(prev)){
       sel.value = prev;
     } else {
-      sel.value = list[0];
-      setPath("session.reg", sel.value);
+      sel.value = "";
+      setPath("session.reg", "");
     }
   } else {
     sel.innerHTML = `<option value="" disabled selected>No simulator registrations configured</option>`;
@@ -854,8 +858,8 @@ function populateRegSelect(fleet, settings, keepValue){
 }
 async function refreshAssessmentDropdowns(keepValue){
   const settings = await loadSettings();
-  populateSelect(document.querySelector('[data-bind="session.training"]'), settings.trainingTypes, keepValue);
-  populateSelect(document.querySelector('[data-bind="session.centre"]'), settings.simulatorCentres, keepValue);
+  populateSelect(document.querySelector('[data-bind="session.training"]'), settings.trainingTypes, keepValue, "Select type of training");
+  populateSelect(document.querySelector('[data-bind="session.centre"]'), settings.simulatorCentres, keepValue, "Select simulator centre");
   populateRegSelect(state.session.aircraft, settings, keepValue);
 }
 await refreshAssessmentDropdowns(false);
