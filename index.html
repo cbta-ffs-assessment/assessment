@@ -318,6 +318,7 @@ button.primary:active{background:var(--red-dark)}
               <span class="lbl">Trainee qualification</span>
               <div style="display:flex;gap:8px">
                 <div class="seg" id="segRole"></div>
+                <span aria-hidden="true" style="display:flex;align-items:center;color:var(--mut);font-weight:700">—</span>
                 <div class="seg" id="segSeat"></div>
               </div>
             </div>
@@ -523,9 +524,8 @@ button.primary:active{background:var(--red-dark)}
       <p class="ptitle">Administration</p>
       <div class="grule"></div>
       <p style="font-size:13px;color:var(--mut);margin-bottom:16px">
-        Manage the Training Type, Simulator Centre, per-fleet Simulator Registration options, and
-        notification recipients offered on Page 1 of the assessment form. Aircraft Type is fixed
-        and cannot be edited here.
+        Manage training types, aircraft-specific simulator centres, simulator registrations, and
+        notification recipients offered on Page 1. Aircraft Type is fixed and cannot be edited here.
       </p>
 
       <div class="card">
@@ -540,20 +540,17 @@ button.primary:active{background:var(--red-dark)}
       </div>
 
       <div class="card">
-        <div class="chead"><span class="cname">Simulator centres</span></div>
-        <div class="pad">
-          <div id="listSimulatorCentres"></div>
-          <div class="addrow">
-            <input type="text" id="addSimulatorCentres" placeholder="New simulator centre">
-            <button class="iconbtn primaryish" data-add="simulatorCentres">➕ Add Simulator Centre</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="chead"><span class="cname">Fleet simulator registrations</span></div>
+        <div class="chead"><span class="cname">Aircraft simulator setup</span></div>
         <div class="pad">
           <div class="seg" id="fleetTabs" style="margin-bottom:14px"></div>
+          <p class="lbl" style="margin-bottom:8px">Simulator centres for selected aircraft</p>
+          <div id="fleetCentreList"></div>
+          <div class="addrow" style="margin-bottom:18px">
+            <input type="text" id="addFleetCentre" placeholder="New simulator centre">
+            <button class="iconbtn primaryish" id="addFleetCentreBtn">➕ Add Simulator Centre</button>
+          </div>
+          <p class="lbl" style="margin-bottom:8px">Simulator registrations for selected centre</p>
+          <p id="selectedFleetCentre" style="font-size:13px;color:var(--mut);margin:-2px 0 10px"></p>
           <div id="fleetRegList"></div>
           <div class="addrow">
             <input type="text" id="addFleetReg" placeholder="New simulator registration">
@@ -650,21 +647,20 @@ const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzhkCzbpxTFUxIeYI
    ════════════════════════════════════════════════════════════════════ */
 const CBTA_DEFAULT_SETTINGS = {
   trainingTypes: ["REC 04", "UPRT"],
-  simulatorCentres: ["AITC Gurugram", "FSTC Gurugram"],
-  fleetRegistrations: { A320: [], A350: [], B787: [], B777: [] },
+  simulatorDirectory: { A320: {}, A350: {}, B787: {}, B777: {} },
   notificationRecipients: []
 };
 function normalizeLoadedSettings_(raw){
-  const fr = (raw && raw.fleetRegistrations && typeof raw.fleetRegistrations==="object") ? raw.fleetRegistrations : {};
+  const dir = (raw && raw.simulatorDirectory && typeof raw.simulatorDirectory==="object") ? raw.simulatorDirectory : {};
+  const normalizeFleet = fleet => {
+    const source = (dir[fleet] && typeof dir[fleet]==="object") ? dir[fleet] : {};
+    return Object.fromEntries(Object.entries(source)
+      .filter(([centre, registrations])=>centre.trim() && Array.isArray(registrations))
+      .map(([centre, registrations])=>[centre, registrations.filter(item=>typeof item==="string" && item.trim())]));
+  };
   return {
     trainingTypes: (raw && Array.isArray(raw.trainingTypes) && raw.trainingTypes.length) ? raw.trainingTypes : CBTA_DEFAULT_SETTINGS.trainingTypes.slice(),
-    simulatorCentres: (raw && Array.isArray(raw.simulatorCentres) && raw.simulatorCentres.length) ? raw.simulatorCentres : CBTA_DEFAULT_SETTINGS.simulatorCentres.slice(),
-    fleetRegistrations: {
-      A320: Array.isArray(fr.A320) ? fr.A320 : [],
-      A350: Array.isArray(fr.A350) ? fr.A350 : [],
-      B787: Array.isArray(fr.B787) ? fr.B787 : [],
-      B777: Array.isArray(fr.B777) ? fr.B777 : []
-    },
+    simulatorDirectory: { A320: normalizeFleet("A320"), A350: normalizeFleet("A350"), B787: normalizeFleet("B787"), B777: normalizeFleet("B777") },
     notificationRecipients: (raw && Array.isArray(raw.notificationRecipients)) ? raw.notificationRecipients : []
   };
 }
@@ -819,7 +815,10 @@ document.getElementById("segAircraft").addEventListener("click", async (e)=>{
   const b=e.target.closest("button");
   if(!b) return;
   const settings = await loadSettings();
-  populateRegSelect(state.session.aircraft, settings, false); // fleet changed — never keep the previous registration
+  setPath("session.centre", "");
+  setPath("session.reg", "");
+  populateCentreSelect(state.session.aircraft, settings, false);
+  populateRegSelect(state.session.aircraft, state.session.centre, settings, false);
 });
 seg(document.getElementById("segRole"),["P1","P2"],"trainee.role");
 seg(document.getElementById("segSeat"),["LHS","RHS"],"trainee.seat");
@@ -831,15 +830,36 @@ function populateSelect(sel, items, keepValue, prompt){
   sel.innerHTML = `<option value="" disabled selected>${prompt}</option>` + items.map(v=>`<option>${v}</option>`).join("");
   if(prev && items.includes(prev)) sel.value = prev;
 }
-function populateRegSelect(fleet, settings, keepValue){
-  const sel = document.querySelector('[data-bind="session.reg"]');
+function populateCentreSelect(fleet, settings, keepValue){
+  const sel = document.querySelector('[data-bind="session.centre"]');
   if(!fleet){
     sel.innerHTML = `<option value="" disabled selected>Select aircraft type</option>`;
+    sel.disabled = true;
+    setPath("session.centre", "");
+    return;
+  }
+  const centres = Object.keys((settings.simulatorDirectory && settings.simulatorDirectory[fleet]) || {});
+  const prev = keepValue ? sel.value : null;
+  if(centres.length){
+    sel.innerHTML = `<option value="" disabled selected>Select simulator centre</option>` + centres.map(v=>`<option>${v}</option>`).join("");
+    sel.disabled = false;
+    if(prev && centres.includes(prev)) sel.value = prev;
+    else { sel.value = ""; setPath("session.centre", ""); }
+  } else {
+    sel.innerHTML = `<option value="" disabled selected>No simulator centres configured</option>`;
+    sel.disabled = true;
+    setPath("session.centre", "");
+  }
+}
+function populateRegSelect(fleet, centre, settings, keepValue){
+  const sel = document.querySelector('[data-bind="session.reg"]');
+  if(!centre){
+    sel.innerHTML = `<option value="" disabled selected>Select simulator centre</option>`;
     sel.disabled = true;
     setPath("session.reg", "");
     return;
   }
-  const list = (settings.fleetRegistrations && settings.fleetRegistrations[fleet]) || [];
+  const list = (settings.simulatorDirectory && settings.simulatorDirectory[fleet] && settings.simulatorDirectory[fleet][centre]) || [];
   const prev = keepValue ? sel.value : null;
   if(list.length){
     sel.innerHTML = `<option value="" disabled selected>Select simulator registration</option>` + list.map(v=>`<option>${v}</option>`).join("");
@@ -859,10 +879,16 @@ function populateRegSelect(fleet, settings, keepValue){
 async function refreshAssessmentDropdowns(keepValue){
   const settings = await loadSettings();
   populateSelect(document.querySelector('[data-bind="session.training"]'), settings.trainingTypes, keepValue, "Select type of training");
-  populateSelect(document.querySelector('[data-bind="session.centre"]'), settings.simulatorCentres, keepValue, "Select simulator centre");
-  populateRegSelect(state.session.aircraft, settings, keepValue);
+  populateCentreSelect(state.session.aircraft, settings, keepValue);
+  populateRegSelect(state.session.aircraft, state.session.centre, settings, keepValue);
 }
 await refreshAssessmentDropdowns(false);
+
+document.querySelector('[data-bind="session.centre"]').addEventListener("change", async ()=>{
+  const settings = await loadSettings();
+  setPath("session.reg", "");
+  populateRegSelect(state.session.aircraft, state.session.centre, settings, false);
+});
 
 /* ════════ Two-way bound fields ════════ */
 document.querySelectorAll("[data-bind]").forEach(el=>{
@@ -1247,19 +1273,20 @@ loginDlgBackdrop.addEventListener("click", e=>{ if(e.target===loginDlgBackdrop) 
 
 /* ════════ Administration page: list editing ════════ */
 let workingSettings = null;
-const LIST_FIELDS = ["trainingTypes","simulatorCentres","notificationRecipients"];
+const LIST_FIELDS = ["trainingTypes","notificationRecipients"];
 const LIST_CONTAINER_ID = {
   trainingTypes: "listTrainingTypes",
-  simulatorCentres: "listSimulatorCentres",
   notificationRecipients: "listNotificationRecipients"
 };
 const FLEETS = ["A320","A350","B787","B777"];
 let currentFleetTab = "A320";
+let currentFleetCentre = "";
 
 async function renderAdminLists(){
   workingSettings = await loadSettings();
   LIST_FIELDS.forEach(renderAdminList);
   renderFleetTabs();
+  renderFleetCentreList();
   renderFleetRegList();
 }
 
@@ -1291,28 +1318,69 @@ document.getElementById("fleetTabs").addEventListener("click", e=>{
   const b = e.target.closest("[data-fleet-tab]");
   if(!b) return;
   currentFleetTab = b.dataset.fleetTab;
+  currentFleetCentre = "";
   renderFleetTabs();
+  renderFleetCentreList();
+  renderFleetRegList();
+});
+
+function currentFleetCentres(){
+  return workingSettings.simulatorDirectory[currentFleetTab];
+}
+function renderFleetCentreList(){
+  const host = document.getElementById("fleetCentreList");
+  const centres = Object.keys(currentFleetCentres());
+  host.innerHTML = centres.map(centre=>`
+    <div class="listrow" data-kind="centre" data-centre="${escapeHtml(centre)}">
+      <span class="itxt">${escapeHtml(centre)}${centre===currentFleetCentre?" · selected":""}</span>
+      <button class="iconbtn ${centre===currentFleetCentre?"primaryish":""}" data-act="select-centre">${centre===currentFleetCentre?"Selected":"Select"}</button>
+      <button class="iconbtn" data-act="edit">✏ Edit</button>
+      <button class="iconbtn danger" data-act="delete">🗑 Delete</button>
+    </div>
+  `).join("") || `<p style="font-size:13px;color:var(--mut);padding:8px 0">No centres configured for ${currentFleetTab} yet — add one below.</p>`;
+}
+document.getElementById("addFleetCentreBtn").addEventListener("click", ()=>{
+  const input = document.getElementById("addFleetCentre");
+  const centre = input.value.trim();
+  if(!centre || currentFleetCentres()[centre]) return;
+  currentFleetCentres()[centre] = [];
+  currentFleetCentre = centre;
+  input.value = "";
+  renderFleetCentreList();
   renderFleetRegList();
 });
 
 function renderFleetRegList(){
   const host = document.getElementById("fleetRegList");
-  const items = workingSettings.fleetRegistrations[currentFleetTab];
+  const note = document.getElementById("selectedFleetCentre");
+  const input = document.getElementById("addFleetReg");
+  const button = document.getElementById("addFleetRegBtn");
+  if(!currentFleetCentre){
+    note.textContent = "Select a simulator centre above first.";
+    host.innerHTML = "";
+    input.disabled = true;
+    button.disabled = true;
+    return;
+  }
+  note.textContent = currentFleetCentre;
+  input.disabled = false;
+  button.disabled = false;
+  const items = currentFleetCentres()[currentFleetCentre];
   host.innerHTML = items.map((item,i)=>`
-    <div class="listrow" data-fleet="${currentFleetTab}" data-index="${i}">
+    <div class="listrow" data-kind="registration" data-index="${i}">
       <span class="itxt">${escapeHtml(item)}</span>
       <button class="iconbtn" data-act="edit">✏ Edit</button>
       <button class="iconbtn danger" data-act="delete">🗑 Delete</button>
       <button class="iconbtn" data-act="up" ${i===0?"disabled":""}>⬆ Move Up</button>
       <button class="iconbtn" data-act="down" ${i===items.length-1?"disabled":""}>⬇ Move Down</button>
     </div>
-  `).join("") || `<p style="font-size:13px;color:var(--mut);padding:8px 0">No registrations configured for ${currentFleetTab} yet — add one below.</p>`;
+  `).join("") || `<p style="font-size:13px;color:var(--mut);padding:8px 0">No registrations configured for ${currentFleetCentre} yet — add one below.</p>`;
 }
 document.getElementById("addFleetRegBtn").addEventListener("click", ()=>{
   const input = document.getElementById("addFleetReg");
   const val = input.value.trim();
-  if(!val) return;
-  workingSettings.fleetRegistrations[currentFleetTab].push(val);
+  if(!val || !currentFleetCentre) return;
+  currentFleetCentres()[currentFleetCentre].push(val);
   input.value = "";
   renderFleetRegList();
 });
@@ -1331,7 +1399,7 @@ document.querySelectorAll("[data-add]").forEach(btn=>{
 });
 
 /* Edit / Move Up / Move Down / Delete (delete requires confirmation) */
-let pendingDelete = null; // {field, index}
+let pendingDelete = null;
 const deleteDlgBackdrop = document.getElementById("deleteDlgBackdrop");
 const deleteDlgMessage = document.getElementById("deleteDlgMessage");
 
@@ -1342,10 +1410,38 @@ document.addEventListener("click",(e)=>{
   if(!row) return;
   const act = btn.dataset.act;
 
-  if(row.dataset.fleet){
-    const fleet = row.dataset.fleet;
+  if(row.dataset.kind==="centre"){
+    const centre = row.dataset.centre;
+    const centres = currentFleetCentres();
+    if(act==="select-centre"){
+      currentFleetCentre = centre;
+      renderFleetCentreList();
+      renderFleetRegList();
+    } else if(act==="edit"){
+      row.innerHTML = `<input type="text" value="${escapeHtml(centre)}"><button class="iconbtn primaryish" data-act="save-edit">Save</button><button class="iconbtn" data-act="cancel-edit">Cancel</button>`;
+      row.querySelector("input").focus();
+    } else if(act==="save-edit"){
+      const replacement = row.querySelector("input").value.trim();
+      if(replacement && replacement!==centre && !centres[replacement]){
+        centres[replacement] = centres[centre];
+        delete centres[centre];
+        if(currentFleetCentre===centre) currentFleetCentre=replacement;
+      }
+      renderFleetCentreList();
+      renderFleetRegList();
+    } else if(act==="cancel-edit"){
+      renderFleetCentreList();
+    } else if(act==="delete"){
+      pendingDelete = {kind:"centre", centre};
+      deleteDlgMessage.textContent = `Delete "${centre}" and all of its registrations?`;
+      deleteDlgBackdrop.classList.add("open");
+    }
+    return;
+  }
+
+  if(row.dataset.kind==="registration"){
     const i = parseInt(row.dataset.index,10);
-    const list = workingSettings.fleetRegistrations[fleet];
+    const list = currentFleetCentres()[currentFleetCentre];
     if(act==="up" && i>0){
       [list[i-1], list[i]] = [list[i], list[i-1]];
       renderFleetRegList();
@@ -1366,7 +1462,7 @@ document.addEventListener("click",(e)=>{
     } else if(act==="cancel-edit"){
       renderFleetRegList();
     } else if(act==="delete"){
-      pendingDelete = {fleet, index:i};
+      pendingDelete = {kind:"registration", index:i};
       deleteDlgMessage.textContent = `Delete "${list[i]}"?`;
       deleteDlgBackdrop.classList.add("open");
     }
@@ -1407,8 +1503,13 @@ document.getElementById("deleteDlgCancel").addEventListener("click", ()=>{
 });
 document.getElementById("deleteDlgConfirm").addEventListener("click", ()=>{
   if(pendingDelete){
-    if(pendingDelete.fleet){
-      workingSettings.fleetRegistrations[pendingDelete.fleet].splice(pendingDelete.index,1);
+    if(pendingDelete.kind==="centre"){
+      delete currentFleetCentres()[pendingDelete.centre];
+      if(currentFleetCentre===pendingDelete.centre) currentFleetCentre="";
+      renderFleetCentreList();
+      renderFleetRegList();
+    } else if(pendingDelete.kind==="registration"){
+      currentFleetCentres()[currentFleetCentre].splice(pendingDelete.index,1);
       renderFleetRegList();
     } else {
       workingSettings[pendingDelete.field].splice(pendingDelete.index,1);
