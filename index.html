@@ -328,7 +328,6 @@ button.primary:active{background:var(--red-dark)}
               <div><span class="lbl">Licence number</span><input type="text" data-bind="trainee.licenseNo" placeholder="Licence no."></div>
               <div><span class="lbl">EMP no.</span><input type="text" data-bind="trainee.emp" placeholder="EMP no."></div>
             </div>
-            <div style="margin-top:10px"><span class="lbl">Licence validity</span><input type="text" data-bind="trainee.licenceValidity" placeholder="DD/MM/YYYY"></div>
           </div>
         </div>
         <div class="card tone" style="margin:0">
@@ -345,7 +344,6 @@ button.primary:active{background:var(--red-dark)}
               <div><span class="lbl">Licence number</span><input type="text" data-bind="trainer.licenseNo" placeholder="Licence no."></div>
               <div><span class="lbl">EMP no.</span><input type="text" data-bind="trainer.emp" placeholder="EMP no."></div>
             </div>
-            <div style="margin-top:10px"><span class="lbl">Licence validity</span><input type="text" data-bind="trainer.licenceValidity" placeholder="DD/MM/YYYY"></div>
           </div>
         </div>
       </div>
@@ -800,8 +798,8 @@ function todayISTddmmyyyy(){
 }
 const state={
   session:{aircraft:"",training:"",centre:"",reg:"",date:todayISTddmmyyyy(),from:"",to:"",totalTime:"",downtime:"00:00",actualTrainingTime:""},
-  trainee:{name:"",email:"",role:"",seat:"",license:"",licenseNo:"",licenceValidity:"",emp:""},
-  trainer:{name:"",email:"",qualification:"",license:"",licenseNo:"",licenceValidity:"",emp:""},
+  trainee:{name:"",email:"",role:"",seat:"",license:"",licenseNo:"",emp:""},
+  trainer:{name:"",email:"",qualification:"",license:"",licenseNo:"",emp:""},
   comps:COMPS.map(c=>({grade:null,comments:"",obs:c.obs.map(()=>({app:true,seen:true}))})),
   remarks:{overall:""},
   outcome:null,pms:null,
@@ -1192,7 +1190,6 @@ function validateForm(){
   if(!state.trainer.email.trim())missing.push("Instructor email address");
   else if(!emailPattern.test(state.trainer.email.trim()))missing.push("Instructor email address — not a valid email format");
   if(!state.trainer.license||!state.trainer.licenseNo.trim())missing.push("Instructor licence details");
-  if(!state.trainer.licenceValidity.trim())missing.push("Instructor licence validity");
   if(!state.trainer.qualification)missing.push("Instructor qualification");
   if(!state.sigs.Trainer.data)missing.push("Instructor signature");
 
@@ -1200,7 +1197,6 @@ function validateForm(){
   if(!state.trainee.email.trim())missing.push("Trainee email address");
   else if(!emailPattern.test(state.trainee.email.trim()))missing.push("Trainee email address — not a valid email format");
   if(!state.trainee.license||!state.trainee.licenseNo.trim())missing.push("Trainee licence details");
-  if(!state.trainee.licenceValidity.trim())missing.push("Trainee licence validity");
   if(!state.trainee.role||!state.trainee.seat)missing.push("Trainee qualification (role and seat)");
   if(!state.sigs.Trainee.data)missing.push("Trainee signature");
 
