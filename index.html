@@ -62,6 +62,7 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 
 /* ── Cards ────────────────────────────────── */
 .card{border:0.5px solid var(--line);border-radius:12px;background:#fff;margin-bottom:14px;overflow:hidden}
+.focus-flag{outline:2px solid var(--gold);outline-offset:2px;transition:outline-color 1.4s ease}
 .card.tone{background:var(--card)}
 .card .pad{padding:14px 16px}
 .chead{display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--card);border-bottom:0.5px solid var(--line);flex-wrap:wrap}
@@ -271,23 +272,23 @@ button.primary:active{background:var(--red-dark)}
       <div style="margin-bottom:18px">
         <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
           <div style="flex:0 0 auto">
-            <span class="lbl">Session date (IST)</span>
+            <span class="lbl">Session date</span>
             <input type="text" id="sessionDate" data-bind="session.date" inputmode="numeric" maxlength="10" placeholder="DD/MM/YYYY" style="width:132px">
           </div>
           <div style="flex:0 0 auto">
-            <span class="lbl">From (IST)</span>
+            <span class="lbl">From</span>
             <div style="display:flex;align-items:center;gap:6px">
-              <select id="fromHH" aria-label="From hour (IST, 24-hour)" style="width:76px"></select>
+              <select id="fromHH" aria-label="From hour (24-hour)" style="width:76px"></select>
               <span style="color:var(--mut);font-weight:600">:</span>
-              <select id="fromMM" aria-label="From minute (IST)" style="width:76px"></select>
+              <select id="fromMM" aria-label="From minute" style="width:76px"></select>
             </div>
           </div>
           <div style="flex:0 0 auto">
-            <span class="lbl">To (IST)</span>
+            <span class="lbl">To</span>
             <div style="display:flex;align-items:center;gap:6px">
-              <select id="toHH" aria-label="To hour (IST, 24-hour)" style="width:76px"></select>
+              <select id="toHH" aria-label="To hour (24-hour)" style="width:76px"></select>
               <span style="color:var(--mut);font-weight:600">:</span>
-              <select id="toMM" aria-label="To minute (IST)" style="width:76px"></select>
+              <select id="toMM" aria-label="To minute" style="width:76px"></select>
             </div>
           </div>
           <div style="flex:0 0 auto">
@@ -565,6 +566,20 @@ button.primary:active{background:var(--red-dark)}
       </div>
 
       <div class="card">
+        <div class="chead"><span class="cname">Simulator centre details</span></div>
+        <div class="pad">
+          <p style="font-size:12.5px;color:var(--mut);margin-bottom:10px">City and timezone for each simulator centre named above. Timezone is used internally to record session and signature times — it is never shown to instructors. Use a real IANA timezone identifier, for example Asia/Kolkata or Europe/London.</p>
+          <div id="centreDetailList"></div>
+          <div class="addrow" style="flex-wrap:wrap">
+            <input type="text" id="addCentreDetailName" placeholder="Centre name" style="flex:1 1 160px">
+            <input type="text" id="addCentreDetailCity" placeholder="City" style="flex:1 1 120px">
+            <input type="text" id="addCentreDetailTimezone" placeholder="Timezone, e.g. Asia/Kolkata" style="flex:1 1 180px">
+            <button class="iconbtn primaryish" id="addCentreDetailBtn">➕ Add Centre Detail</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="chead"><span class="cname">Permanent notification recipients</span></div>
         <div class="pad">
           <p style="font-size:12.5px;color:var(--mut);margin-bottom:10px">Configuration only at this stage — these addresses are stored centrally but no email is sent from here yet.</p>
@@ -653,6 +668,7 @@ const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzhkCzbpxTFUxIeYI
 const CBTA_DEFAULT_SETTINGS = {
   trainingTypes: ["REC 04", "UPRT"],
   simulatorDirectory: { A320: {}, A350: {}, B787: {}, B777: {} },
+  centreDirectory: {},
   notificationRecipients: []
 };
 function normalizeLoadedSettings_(raw){
@@ -663,11 +679,23 @@ function normalizeLoadedSettings_(raw){
       .filter(([centre, registrations])=>centre.trim() && Array.isArray(registrations))
       .map(([centre, registrations])=>[centre, registrations.filter(item=>typeof item==="string" && item.trim())]));
   };
+  const centreDir = (raw && raw.centreDirectory && typeof raw.centreDirectory==="object") ? raw.centreDirectory : {};
+  const normalizedCentreDir = Object.fromEntries(Object.entries(centreDir)
+    .filter(([name, info])=>name.trim() && info && typeof info==="object")
+    .map(([name, info])=>[name, { city: typeof info.city==="string"?info.city:"", timezone: typeof info.timezone==="string" && info.timezone.trim() ? info.timezone.trim() : "Asia/Kolkata" }]));
   return {
     trainingTypes: (raw && Array.isArray(raw.trainingTypes) && raw.trainingTypes.length) ? raw.trainingTypes : CBTA_DEFAULT_SETTINGS.trainingTypes.slice(),
     simulatorDirectory: { A320: normalizeFleet("A320"), A350: normalizeFleet("A350"), B787: normalizeFleet("B787"), B777: normalizeFleet("B777") },
+    centreDirectory: normalizedCentreDir,
     notificationRecipients: (raw && Array.isArray(raw.notificationRecipients)) ? raw.notificationRecipients : []
   };
+}
+/* Looks up a configured simulator centre's IANA timezone. Centres without
+   a configured timezone yet (existing data predating this feature) fall
+   back to Asia/Kolkata — a sensible default rather than a broken lookup. */
+function getCentreTimezone_(centreName, settings){
+  const entry = settings && settings.centreDirectory && settings.centreDirectory[centreName];
+  return (entry && entry.timezone) || "Asia/Kolkata";
 }
 async function loadSettings(){
   try{
@@ -797,10 +825,10 @@ function todayISTddmmyyyy(){
   return value("day")+"/"+value("month")+"/"+value("year");
 }
 const state={
-  session:{aircraft:"",training:"",centre:"",reg:"",date:todayISTddmmyyyy(),from:"",to:"",totalTime:"",downtime:"00:00",actualTrainingTime:""},
+  session:{aircraft:"",training:"",centre:"",reg:"",centreTimezone:"",date:todayISTddmmyyyy(),from:"",to:"",totalTime:"",downtime:"00:00",actualTrainingTime:""},
   trainee:{name:"",email:"",role:"",seat:"",license:"",licenseNo:"",emp:""},
   trainer:{name:"",email:"",qualification:"",license:"",licenseNo:"",emp:""},
-  comps:COMPS.map(c=>({grade:null,comments:"",obs:c.obs.map(()=>({app:true,seen:true}))})),
+  comps:COMPS.map(c=>({grade:null,comments:"",autoGrade1:false,obs:c.obs.map(()=>({app:true,seen:true}))})),
   remarks:{overall:""},
   outcome:null,pms:null,
   autoUnsat:false,
@@ -823,6 +851,7 @@ document.getElementById("segAircraft").addEventListener("click", async (e)=>{
   if(!b) return;
   const settings = await loadSettings();
   setPath("session.centre", "");
+  setPath("session.centreTimezone", "");
   setPath("session.reg", "");
   populateCentreSelect(state.session.aircraft, settings, false);
   populateRegSelect(state.session.aircraft, state.session.centre, settings, false);
@@ -894,6 +923,7 @@ await refreshAssessmentDropdowns(false);
 document.querySelector('[data-bind="session.centre"]').addEventListener("change", async ()=>{
   const settings = await loadSettings();
   setPath("session.reg", "");
+  setPath("session.centreTimezone", getCentreTimezone_(state.session.centre, settings));
   populateRegSelect(state.session.aircraft, state.session.centre, settings, false);
 });
 
@@ -903,14 +933,14 @@ document.querySelectorAll("[data-bind]").forEach(el=>{
   el.addEventListener("input",()=>setPath(el.dataset.bind,el.value));
 });
 
-/* ════════ Session timings (IST) ════════ */
+/* ════════ Session timings ════════ */
 function recalcSessionTotalTime(){
   const totalDisp=document.getElementById("sessionTotalTime"),actualDisp=document.getElementById("actualTrainingTime");
   const from=state.session.from,to=state.session.to;
   if(!from||!to){state.session.totalTime="";state.session.actualTrainingTime="";totalDisp.value="";actualDisp.value="";return;}
   const[fh,fm]=from.split(":").map(Number),[th,tm]=to.split(":").map(Number);
   let mins=(th*60+tm)-(fh*60+fm);
-  if(mins<0)mins+=1440; // TO earlier than FROM = TO falls on the following IST day
+  if(mins<0)mins+=1440; // TO earlier than FROM = TO falls on the following day
   const[downtimeHours,downtimeMinutes]=state.session.downtime.split(":").map(Number);
   const actualMins=Math.max(0,mins-(downtimeHours*60+downtimeMinutes));
   const formatDuration=value=>Math.floor(value/60)+" hr "+(value%60)+" min";
@@ -920,7 +950,7 @@ function recalcSessionTotalTime(){
   actualDisp.value=state.session.actualTrainingTime;
 }
 
-/* From/To (IST) — plain, locale-independent 00–23 / 00–55 dropdowns. Native
+/* From/To — plain, locale-independent 00–23 / 00–55 dropdowns. Native
    type=time pickers render AM/PM on 12-hour-locale devices, which this
    feature must never show, so hours and minutes are built here as selects. */
 function populateDigits(sel,count){
@@ -981,7 +1011,7 @@ function renderCards(hostId,from,to){
             <button type="button" data-ob="${ci}.${oi}.app.1" class="${os.app?"on":""}" aria-label="Applicable ${o[0]} yes">✓</button>
             <button type="button" data-ob="${ci}.${oi}.app.0" class="${!os.app?"na":""}" aria-label="Applicable ${o[0]} NA">NA</button></span></span>
           <span class="cbcol"><span class="tg">
-            <button type="button" data-ob="${ci}.${oi}.seen.1" class="${os.seen?"on":""}" aria-label="Observed ${o[0]} yes">✓</button>
+            <button type="button" data-ob="${ci}.${oi}.seen.1" class="${os.seen?"on":""}" ${!os.app?"disabled":""} aria-label="Observed ${o[0]} yes">✓</button>
             <button type="button" data-ob="${ci}.${oi}.seen.0" class="${!os.seen?"na":""}" aria-label="Observed ${o[0]} NO">NO</button></span></span>
         </div>`;}).join("")}
       <div class="cfoot"><input type="text" placeholder="Comments (optional)" data-cmt="${ci}" value="${st.comments.replace(/"/g,"&quot;")}"></div>
@@ -997,7 +1027,25 @@ document.addEventListener("click",e=>{
     state.comps[ci].obs[oi][k]=v==="1";
     const tg=ob.closest(".tg"),val=state.comps[ci].obs[oi][k];
     tg.children[0].className=val?"on":"";
-    tg.children[1].className=val?"":"na";return;}
+    tg.children[1].className=val?"":"na";
+
+    if(k==="app"){
+      const row=ob.closest(".ob");
+      const seenTg=row.querySelectorAll(".tg")[1];
+      const seenYesBtn=seenTg.children[0], seenNoBtn=seenTg.children[1];
+      if(!state.comps[ci].obs[oi].app){
+        // Not Applicable: Observed is forced to No and locked — enforced in the UI, not just styled.
+        state.comps[ci].obs[oi].seen=false;
+        seenYesBtn.className="";
+        seenNoBtn.className="na";
+        seenYesBtn.disabled=true;
+      } else {
+        // Applicable again: normal Observed selection is restored.
+        seenYesBtn.disabled=false;
+      }
+    }
+    updateAutoGrades();
+    return;}
   const mx=e.target.closest("[data-mx]");
   if(mx){const[ci,gr]=mx.dataset.mx.split(".").map(Number);
     state.comps[ci].grade=state.comps[ci].grade===gr?null:gr;
@@ -1018,17 +1066,46 @@ document.addEventListener("input",e=>{
 });
 
 /* ════════ Review page ════════ */
+function competencyCoverage_(i){
+  const obs=state.comps[i].obs;
+  const appCount=obs.filter(o=>o.app).length;
+  const obsCount=obs.filter(o=>o.seen).length;
+  return { appCount, obsCount, pct: appCount ? Math.round((obsCount/appCount)*100) : null };
+}
+/* 0–59% observation coverage on an applicable competency forces and locks
+   Grade 1; 60%+ releases the lock. Not Applicable competencies (no
+   applicable Observable Behaviours at all) are excluded entirely — coverage
+   is undefined for them, so no automatic grade is forced either way. */
+function updateAutoGrades(){
+  COMPS.forEach((c,i)=>{
+    const {appCount, pct}=competencyCoverage_(i);
+    if(appCount===0){
+      state.comps[i].autoGrade1=false;
+      return;
+    }
+    if(pct<=59){
+      state.comps[i].grade=1;
+      state.comps[i].autoGrade1=true;
+    } else if(state.comps[i].autoGrade1){
+      state.comps[i].grade=null;
+      state.comps[i].autoGrade1=false;
+    }
+  });
+  updateAutoOutcome();
+}
 function updateAutoOutcome(){
-  const hasGrade1=state.comps.some(c=>c.grade===1);
-  const hasFourPlusGrade2=state.comps.filter(c=>c.grade===2).length>=4;
+  const graded=state.comps.map((c,i)=>({grade:c.grade, appCount:competencyCoverage_(i).appCount}))
+    .filter(c=>c.appCount>0); // Not Applicable competencies are excluded from the outcome calculation
+  const hasGrade1=graded.some(c=>c.grade===1);
+  const hasFourPlusGrade2=graded.filter(c=>c.grade===2).length>=4;
   const shouldAuto=hasGrade1||hasFourPlusGrade2;
 
   if(shouldAuto){
     state.outcome="UNSATISFACTORY";
     state.autoUnsat=true;
     state.autoUnsatReasons={grade1:hasGrade1,grade2:hasFourPlusGrade2};
-  }else if(state.autoUnsat){
-    state.outcome=null;
+  }else{
+    state.outcome="SATISFACTORY";
     state.autoUnsat=false;
     state.autoUnsatReasons={grade1:false,grade2:false};
   }
@@ -1062,9 +1139,11 @@ function renderReview(){
       <table class="mxt">
         <tr><th class="rowh">Grade</th>${COMPS.map(c=>`<th>${c.code}</th>`).join("")}</tr>
         ${[1,2,3,4,5].map(g=>`<tr><th class="rowh">${g}</th>${COMPS.map((c,i)=>
-          `<td><button type="button" class="mx${s.comps[i].grade===g?" chk":""}" data-mx="${i}.${g}" aria-label="Grade ${g} for ${c.code}">✓</button></td>`).join("")}</tr>`).join("")}
+          `<td><button type="button" class="mx${s.comps[i].grade===g?" chk":""}" data-mx="${i}.${g}" ${s.comps[i].autoGrade1?"disabled":""} aria-label="Grade ${g} for ${c.code}">✓</button></td>`).join("")}</tr>`).join("")}
       </table>
       <p style="font-size:12px;color:var(--mut);padding:10px 2px 0">Kept in sync with the grade selected on each competency card.</p>
+      ${(()=>{ const locked=COMPS.filter((c,i)=>s.comps[i].autoGrade1).map(c=>c.code);
+        return locked.length ? `<p style="font-size:12px;color:var(--mut);padding:4px 2px 0">Grade 1 automatically applied and locked for ${locked.join(", ")} — observation coverage is 59% or below.</p>` : ""; })()}
     </div>
   </div>
   <div class="card">
@@ -1135,7 +1214,7 @@ function sizePad(who){
 function markSigned(who){
   if(!state.sigs[who].dt){
     state.sigs[who].dt=new Date();
-    document.getElementById("sigDt"+who).textContent=stampText(state.sigs[who].dt);
+    document.getElementById("sigDt"+who).textContent=stampText(state.sigs[who].dt, state.session.centreTimezone);
     document.getElementById("stamp"+who).textContent="Signed";
   }
   document.getElementById("hint"+who).style.display="none";
@@ -1148,8 +1227,8 @@ function clearSig(who){
   document.getElementById("sigDt"+who).textContent="—";
   document.getElementById("stamp"+who).textContent="";
 }
-const stampText=d=>d.toLocaleDateString("en-GB",{timeZone:"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric"})+" · "+
-  d.toLocaleTimeString("en-GB",{timeZone:"Asia/Kolkata",hour:"2-digit",minute:"2-digit"})+" IST";
+const stampText=(d,tz)=>d.toLocaleDateString("en-GB",{timeZone:tz||"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric"})+" · "+
+  d.toLocaleTimeString("en-GB",{timeZone:tz||"Asia/Kolkata",hour:"2-digit",minute:"2-digit"});
 initPad("Trainer");initPad("Trainee");
 window.addEventListener("resize",()=>{if(current===4){sizePad("Trainer");sizePad("Trainee");}});
 
@@ -1176,36 +1255,58 @@ function setStatus(msg,tone){
 }
 
 function validateForm(){
-  const missing=[];
+  const items=[];
   const emailPattern=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const push=(cond,label,page,selector)=>{ if(cond) items.push({label,page,selector}); };
 
-  if(!state.session.aircraft)missing.push("Aircraft type");
-  if(!state.session.training)missing.push("Type of training");
-  if(!state.session.centre)missing.push("Simulator centre");
-  if(!state.session.reg)missing.push("Simulator registration");
-  if(!state.session.date.trim())missing.push("Session date");
-  if(!state.session.from||!state.session.to)missing.push("Session time");
+  push(!state.session.aircraft, "Aircraft type", 1, "#segAircraft");
+  push(!state.session.training, "Type of training", 1, '[data-bind="session.training"]');
+  push(!state.session.centre, "Simulator centre", 1, '[data-bind="session.centre"]');
+  push(!state.session.reg, "Simulator registration", 1, '[data-bind="session.reg"]');
+  push(!state.session.date.trim(), "Session date", 1, "#sessionDate");
+  push(!state.session.from||!state.session.to, "Session time", 1, "#fromHH");
 
-  if(!state.trainer.name.trim())missing.push("Instructor name");
-  if(!state.trainer.email.trim())missing.push("Instructor email address");
-  else if(!emailPattern.test(state.trainer.email.trim()))missing.push("Instructor email address — not a valid email format");
-  if(!state.trainer.license||!state.trainer.licenseNo.trim())missing.push("Instructor licence details");
-  if(!state.trainer.qualification)missing.push("Instructor qualification");
-  if(!state.sigs.Trainer.data)missing.push("Instructor signature");
+  push(!state.trainer.name.trim(), "Instructor name", 1, '[data-bind="trainer.name"]');
+  push(!state.trainer.email.trim(), "Instructor email address", 1, '[data-bind="trainer.email"]');
+  if(state.trainer.email.trim() && !emailPattern.test(state.trainer.email.trim()))
+    items.push({label:"Instructor email address — not a valid email format", page:1, selector:'[data-bind="trainer.email"]'});
+  push(!state.trainer.license||!state.trainer.licenseNo.trim(), "Instructor licence details", 1, '[data-bind="trainer.licenseNo"]');
+  push(!state.trainer.qualification, "Instructor qualification", 1, "#segInstructorQualification");
+  push(!state.sigs.Trainer.data, "Instructor signature", 4, "#sigTrainer");
 
-  if(!state.trainee.name.trim())missing.push("Trainee name");
-  if(!state.trainee.email.trim())missing.push("Trainee email address");
-  else if(!emailPattern.test(state.trainee.email.trim()))missing.push("Trainee email address — not a valid email format");
-  if(!state.trainee.license||!state.trainee.licenseNo.trim())missing.push("Trainee licence details");
-  if(!state.trainee.role||!state.trainee.seat)missing.push("Trainee qualification (role and seat)");
-  if(!state.sigs.Trainee.data)missing.push("Trainee signature");
+  push(!state.trainee.name.trim(), "Trainee name", 1, '[data-bind="trainee.name"]');
+  push(!state.trainee.email.trim(), "Trainee email address", 1, '[data-bind="trainee.email"]');
+  if(state.trainee.email.trim() && !emailPattern.test(state.trainee.email.trim()))
+    items.push({label:"Trainee email address — not a valid email format", page:1, selector:'[data-bind="trainee.email"]'});
+  push(!state.trainee.license||!state.trainee.licenseNo.trim(), "Trainee licence details", 1, '[data-bind="trainee.licenseNo"]');
+  push(!state.trainee.role||!state.trainee.seat, "Trainee qualification (role and seat)", 1, "#segRole");
+  push(!state.sigs.Trainee.data, "Trainee signature", 4, "#sigTrainee");
 
-  COMPS.forEach((c,i)=>{ if(state.comps[i].grade==null)missing.push(c.code+" competency grade"); });
+  COMPS.forEach((c,i)=>{ if(state.comps[i].grade==null) items.push({label:c.code+" competency grade", page:4, selector:`[data-mx="${i}.1"]`}); });
 
-  if(!state.outcome)missing.push("Overall outcome");
-  if(!state.pms)missing.push("Pilot monitoring & support");
+  push(!state.outcome, "Overall outcome", 4, '[data-out="outcome|SATISFACTORY"]');
+  push(!state.pms, "Pilot monitoring & support", 4, '[data-out="pms|SATISFACTORY"]');
 
-  return missing;
+  return items;
+}
+/* Navigates to the page holding the given validation item and scrolls/
+   focuses its field — genuine inputs receive keyboard focus; non-focusable
+   controls (segmented buttons, matrix cells, signature pads) are scrolled
+   into view and briefly highlighted instead. */
+function focusValidationItem(item){
+  if(!item) return;
+  goTo(item.page);
+  setTimeout(()=>{
+    const el=document.querySelector(item.selector);
+    if(!el) return;
+    if(typeof el.scrollIntoView==="function"){
+      try{ el.scrollIntoView({behavior:"smooth", block:"center"}); }catch(err){/* not fatal — focus/highlight still proceed below */}
+    }
+    if(typeof el.focus==="function") el.focus({preventScroll:true});
+    const highlightTarget=el.closest(".card")||el;
+    highlightTarget.classList.add("focus-flag");
+    setTimeout(()=>highlightTarget.classList.remove("focus-flag"), 1600);
+  },50);
 }
 
 /* Grades 1, 2 or 5 require supporting Overall Remarks. Checked only at
@@ -1263,7 +1364,8 @@ document.getElementById("submitBtn").addEventListener("click",()=>{
 
   const missing=validateForm();
   if(missing.length){
-    alert("Please complete the following before submitting:\n\n"+missing.map(m=>"• "+m).join("\n"));
+    alert("Please complete the following before submitting:\n\n"+missing.map(m=>"• "+m.label).join("\n"));
+    focusValidationItem(missing[0]);
     return;
   }
   if(!APPS_SCRIPT_URL){
@@ -1288,7 +1390,7 @@ document.getElementById("submitBtn").addEventListener("click",()=>{
       throw new Error(res&&res.message?res.message:"The backend reported an error.");
     }
     document.getElementById("assessId").textContent=res.assessmentId;
-    document.getElementById("assessDt").textContent=stampText(new Date(res.submittedAt));
+    document.getElementById("assessDt").textContent=stampText(new Date(res.submittedAt), state.session.centreTimezone);
     document.getElementById("pdfStatus").textContent=res.pdfUrl?"PDF generated successfully":"PDF generation pending";
     setStatus("","");
     goTo("done");
@@ -1356,6 +1458,7 @@ async function renderAdminLists(){
   renderFleetTabs();
   renderFleetCentreList();
   renderFleetRegList();
+  renderCentreDetailList();
 }
 
 function escapeHtml(s){
@@ -1453,6 +1556,36 @@ document.getElementById("addFleetRegBtn").addEventListener("click", ()=>{
   renderFleetRegList();
 });
 
+function renderCentreDetailList(){
+  const host = document.getElementById("centreDetailList");
+  const names = Object.keys(workingSettings.centreDirectory);
+  host.innerHTML = names.map((name,i)=>{
+    const info = workingSettings.centreDirectory[name];
+    return `
+    <div class="listrow" data-kind="centreDetail" data-index="${i}" data-name="${escapeHtml(name)}">
+      <span class="itxt">${escapeHtml(name)} — ${escapeHtml(info.city||"—")} · ${escapeHtml(info.timezone)}</span>
+      <button class="iconbtn" data-act="edit">✏ Edit</button>
+      <button class="iconbtn danger" data-act="delete">🗑 Delete</button>
+      <button class="iconbtn" data-act="up" ${i===0?"disabled":""}>⬆ Move Up</button>
+      <button class="iconbtn" data-act="down" ${i===names.length-1?"disabled":""}>⬇ Move Down</button>
+    </div>`;
+  }).join("") || `<p style="font-size:13px;color:var(--mut);padding:8px 0">No centre details configured yet — add one below.</p>`;
+}
+document.getElementById("addCentreDetailBtn").addEventListener("click", ()=>{
+  const nameInput = document.getElementById("addCentreDetailName");
+  const cityInput = document.getElementById("addCentreDetailCity");
+  const tzInput = document.getElementById("addCentreDetailTimezone");
+  const name = nameInput.value.trim(), city = cityInput.value.trim(), timezone = tzInput.value.trim();
+  if(!name || !timezone || workingSettings.centreDirectory[name]) return;
+  if(!isValidIanaTimezone_(timezone)){ alert("That doesn't look like a valid timezone (for example, Asia/Kolkata or Europe/London)."); return; }
+  workingSettings.centreDirectory[name] = { city, timezone };
+  nameInput.value = ""; cityInput.value = ""; tzInput.value = "";
+  renderCentreDetailList();
+});
+function isValidIanaTimezone_(tz){
+  try{ Intl.DateTimeFormat(undefined, {timeZone: tz}); return true; }catch(e){ return false; }
+}
+
 /* Add */
 document.querySelectorAll("[data-add]").forEach(btn=>{
   btn.addEventListener("click", ()=>{
@@ -1537,6 +1670,50 @@ document.addEventListener("click",(e)=>{
     return;
   }
 
+  if(row.dataset.kind==="centreDetail"){
+    const names = Object.keys(workingSettings.centreDirectory);
+    const i = parseInt(row.dataset.index,10);
+    const name = row.dataset.name;
+    if(act==="up" && i>0){
+      const reordered = names.slice();
+      [reordered[i-1], reordered[i]] = [reordered[i], reordered[i-1]];
+      workingSettings.centreDirectory = Object.fromEntries(reordered.map(n=>[n, workingSettings.centreDirectory[n]]));
+      renderCentreDetailList();
+    } else if(act==="down" && i<names.length-1){
+      const reordered = names.slice();
+      [reordered[i+1], reordered[i]] = [reordered[i], reordered[i+1]];
+      workingSettings.centreDirectory = Object.fromEntries(reordered.map(n=>[n, workingSettings.centreDirectory[n]]));
+      renderCentreDetailList();
+    } else if(act==="edit"){
+      const info = workingSettings.centreDirectory[name];
+      row.innerHTML = `
+        <input type="text" value="${escapeHtml(name)}" placeholder="Centre name" style="flex:1 1 140px">
+        <input type="text" value="${escapeHtml(info.city||"")}" placeholder="City" style="flex:1 1 100px">
+        <input type="text" value="${escapeHtml(info.timezone)}" placeholder="Timezone" style="flex:1 1 160px">
+        <button class="iconbtn primaryish" data-act="save-edit">Save</button>
+        <button class="iconbtn" data-act="cancel-edit">Cancel</button>
+      `;
+      row.querySelectorAll("input")[0].focus();
+    } else if(act==="save-edit"){
+      const inputs = row.querySelectorAll("input");
+      const newName = inputs[0].value.trim(), newCity = inputs[1].value.trim(), newTz = inputs[2].value.trim();
+      if(newName && newTz && isValidIanaTimezone_(newTz) && (newName===name || !workingSettings.centreDirectory[newName])){
+        if(newName!==name) delete workingSettings.centreDirectory[name];
+        workingSettings.centreDirectory[newName] = { city:newCity, timezone:newTz };
+      } else if(newTz && !isValidIanaTimezone_(newTz)){
+        alert("That doesn't look like a valid timezone (for example, Asia/Kolkata or Europe/London).");
+      }
+      renderCentreDetailList();
+    } else if(act==="cancel-edit"){
+      renderCentreDetailList();
+    } else if(act==="delete"){
+      pendingDelete = {kind:"centreDetail", name};
+      deleteDlgMessage.textContent = `Delete centre details for "${name}"?`;
+      deleteDlgBackdrop.classList.add("open");
+    }
+    return;
+  }
+
   const field = row.dataset.field;
   const i = parseInt(row.dataset.index,10);
 
@@ -1579,6 +1756,9 @@ document.getElementById("deleteDlgConfirm").addEventListener("click", ()=>{
     } else if(pendingDelete.kind==="registration"){
       currentFleetCentres()[currentFleetCentre].splice(pendingDelete.index,1);
       renderFleetRegList();
+    } else if(pendingDelete.kind==="centreDetail"){
+      delete workingSettings.centreDirectory[pendingDelete.name];
+      renderCentreDetailList();
     } else {
       workingSettings[pendingDelete.field].splice(pendingDelete.index,1);
       renderAdminList(pendingDelete.field);
