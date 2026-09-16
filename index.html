@@ -467,7 +467,6 @@ button.primary:active{background:var(--red-dark)}
               <div class="sighint" id="hintTrainer">Sign here</div>
             </div>
             <div class="sigbar">
-              <span class="signed" id="stampTrainer"></span>
               <button class="clear" data-clear="Trainer">Clear</button>
             </div>
             <div class="kv" style="margin-top:6px"><span class="k">Trainer name</span><span class="v" id="sigNameTrainer"></span></div>
@@ -482,7 +481,6 @@ button.primary:active{background:var(--red-dark)}
               <div class="sighint" id="hintTrainee">Sign here</div>
             </div>
             <div class="sigbar">
-              <span class="signed" id="stampTrainee"></span>
               <button class="clear" data-clear="Trainee">Clear</button>
             </div>
             <div class="kv" style="margin-top:6px"><span class="k">Trainee name</span><span class="v" id="sigNameTrainee"></span></div>
@@ -609,6 +607,19 @@ button.primary:active{background:var(--red-dark)}
         <div style="display:flex;gap:10px">
           <button class="nav ghost" id="deleteDlgCancel" style="flex:1">Cancel</button>
           <button class="nav primary" id="deleteDlgConfirm" style="flex:1;background:var(--red)">Delete</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dlgBackdrop" id="p2LhsDlgBackdrop">
+    <div class="card dlgCard">
+      <div class="chead"><span class="cname">Confirm selection</span></div>
+      <div class="pad">
+        <p style="font-size:14px;color:var(--ink);margin-bottom:14px">Please confirm: P2 selected for LHS.<br>Is this correct?</p>
+        <div style="display:flex;gap:10px">
+          <button class="nav ghost" id="p2LhsDlgCancel" style="flex:1">Cancel</button>
+          <button class="nav primary" id="p2LhsDlgContinue" style="flex:1">Continue</button>
         </div>
       </div>
     </div>
@@ -823,6 +834,7 @@ document.getElementById("segAircraft").addEventListener("click", async (e)=>{
 });
 seg(document.getElementById("segRole"),["P1","P2"],"trainee.role");
 seg(document.getElementById("segSeat"),["LHS","RHS"],"trainee.seat");
+const p2LhsDlgBackdrop = document.getElementById("p2LhsDlgBackdrop");
 let p2LhsPrevRole=state.trainee.role, p2LhsPrevSeat=state.trainee.seat;
 function checkP2LhsCombination(){
   const changed=(state.trainee.role!==p2LhsPrevRole)||(state.trainee.seat!==p2LhsPrevSeat);
@@ -830,16 +842,28 @@ function checkP2LhsCombination(){
   p2LhsPrevSeat=state.trainee.seat;
   if(!changed) return; // clicking an already-selected option must never retrigger this
   if(state.trainee.role==="P2" && state.trainee.seat==="LHS"){
-    const ok=confirm("Please confirm: P2 selected for LHS.\nIs this correct?");
-    if(!ok){
-      setPath("trainee.seat","");
-      p2LhsPrevSeat="";
-      document.getElementById("segSeat").querySelectorAll("button").forEach(b=>b.classList.remove("sel"));
-    }
+    p2LhsDlgBackdrop.classList.add("open");
   }
 }
 document.getElementById("segRole").addEventListener("click", checkP2LhsCombination);
 document.getElementById("segSeat").addEventListener("click", checkP2LhsCombination);
+document.getElementById("p2LhsDlgContinue").addEventListener("click", ()=>{
+  p2LhsDlgBackdrop.classList.remove("open"); // P2 + LHS is retained as-is
+});
+document.getElementById("p2LhsDlgCancel").addEventListener("click", ()=>{
+  setPath("trainee.seat","");
+  p2LhsPrevSeat="";
+  document.getElementById("segSeat").querySelectorAll("button").forEach(b=>b.classList.remove("sel"));
+  p2LhsDlgBackdrop.classList.remove("open");
+});
+p2LhsDlgBackdrop.addEventListener("click", e=>{
+  if(e.target===p2LhsDlgBackdrop){
+    setPath("trainee.seat","");
+    p2LhsPrevSeat="";
+    document.getElementById("segSeat").querySelectorAll("button").forEach(b=>b.classList.remove("sel"));
+    p2LhsDlgBackdrop.classList.remove("open");
+  }
+});
 seg(document.getElementById("segInstructorQualification"),["TRI(A)","TRI(S)","SFI","SFE","DE"],"trainer.qualification");
 
 /* ════════ Assessment-form dropdowns sourced from settings ════════ */
@@ -1107,14 +1131,6 @@ function updateAutoGrades(){
   updateAutoOutcome();
 }
 function updateAutoOutcome(){
-  const allGraded=state.comps.every(c=>c.grade!=null);
-  if(!allGraded){
-    state.outcome=null;
-    state.autoUnsat=false;
-    state.autoUnsatReasons={grade1:false,grade2:false};
-    return;
-  }
-
   const graded=state.comps.map((c,i)=>({grade:c.grade, appCount:competencyCoverage_(i).appCount}))
     .filter(c=>c.appCount>0); // Not Applicable competencies are excluded from the outcome calculation
   const hasGrade1=graded.some(c=>c.grade===1);
@@ -1122,11 +1138,21 @@ function updateAutoOutcome(){
   const shouldAuto=hasGrade1||hasFourPlusGrade2;
 
   if(shouldAuto){
+    // Rules 1 & 2: an UNSAT trigger fires immediately, without waiting for the remaining competencies to be graded.
     state.outcome="UNSATISFACTORY";
     state.autoUnsat=true;
     state.autoUnsatReasons={grade1:hasGrade1,grade2:hasFourPlusGrade2};
-  }else{
+    return;
+  }
+
+  const allGraded=state.comps.every(c=>c.grade!=null);
+  if(allGraded){
+    // Rule 3: SATISFACTORY is only auto-selected once every competency has a grade and no trigger is present.
     state.outcome="SATISFACTORY";
+    state.autoUnsat=false;
+    state.autoUnsatReasons={grade1:false,grade2:false};
+  }else{
+    state.outcome=null;
     state.autoUnsat=false;
     state.autoUnsatReasons={grade1:false,grade2:false};
   }
@@ -1233,7 +1259,6 @@ function sizePad(who){
   if(state.sigs[who].data){const img=new Image();img.onload=()=>ctx.drawImage(img,0,0,w,h);img.src=state.sigs[who].data;}
 }
 function markSigned(who){
-  document.getElementById("stamp"+who).textContent="Signed";
   document.getElementById("hint"+who).style.display="none";
 }
 function clearSig(who){
@@ -1241,7 +1266,6 @@ function clearSig(who){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   state.sigs[who]={data:null};
   document.getElementById("hint"+who).style.display="flex";
-  document.getElementById("stamp"+who).textContent="";
 }
 const stampText=d=>d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+" · "+
   d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
