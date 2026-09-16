@@ -273,7 +273,7 @@ button.primary:active{background:var(--red-dark)}
         <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
           <div style="flex:0 0 auto">
             <span class="lbl">Session date</span>
-            <input type="text" id="sessionDate" data-bind="session.date" inputmode="numeric" maxlength="10" placeholder="DD/MM/YYYY" style="width:132px">
+            <select id="sessionDate" data-bind="session.date" style="width:150px"></select>
           </div>
           <div style="flex:0 0 auto">
             <span class="lbl">From</span>
@@ -327,7 +327,7 @@ button.primary:active{background:var(--red-dark)}
             <div class="three">
               <div><span class="lbl">Licence type</span><select data-bind="trainee.license" aria-label="Trainee licence type"><option value="">Select licence type</option><option>CPL</option><option>ATPL</option><option>FATA</option></select></div>
               <div><span class="lbl">Licence number</span><input type="text" data-bind="trainee.licenseNo" placeholder="Licence no."></div>
-              <div><span class="lbl">EMP no.</span><input type="text" data-bind="trainee.emp" placeholder="EMP no."></div>
+              <div><span class="lbl">EMP no.</span><input type="text" data-bind="trainee.emp" inputmode="numeric" pattern="[0-9]*" placeholder="EMP no."></div>
             </div>
           </div>
         </div>
@@ -343,7 +343,7 @@ button.primary:active{background:var(--red-dark)}
             <div class="three">
               <div><span class="lbl">Licence type</span><select data-bind="trainer.license" aria-label="Trainer licence type"><option value="">Select licence type</option><option>CPL</option><option>ATPL</option><option>FATA</option></select></div>
               <div><span class="lbl">Licence number</span><input type="text" data-bind="trainer.licenseNo" placeholder="Licence no."></div>
-              <div><span class="lbl">EMP no.</span><input type="text" data-bind="trainer.emp" placeholder="EMP no."></div>
+              <div><span class="lbl">EMP no.</span><input type="text" data-bind="trainer.emp" inputmode="numeric" pattern="[0-9]*" placeholder="EMP no."></div>
             </div>
           </div>
         </div>
@@ -472,7 +472,6 @@ button.primary:active{background:var(--red-dark)}
             </div>
             <div class="kv" style="margin-top:6px"><span class="k">Trainer name</span><span class="v" id="sigNameTrainer"></span></div>
             <div class="kv"><span class="k">Licence type</span><span class="v" id="sigLicTrainer"></span></div>
-            <div class="kv"><span class="k">Date and time</span><span class="v" id="sigDtTrainer">—</span></div>
           </div>
         </div>
         <div class="card" style="margin:0">
@@ -488,7 +487,6 @@ button.primary:active{background:var(--red-dark)}
             </div>
             <div class="kv" style="margin-top:6px"><span class="k">Trainee name</span><span class="v" id="sigNameTrainee"></span></div>
             <div class="kv"><span class="k">Licence type</span><span class="v" id="sigLicTrainee"></span></div>
-            <div class="kv"><span class="k">Date and time</span><span class="v" id="sigDtTrainee">—</span></div>
           </div>
         </div>
       </div>
@@ -561,20 +559,6 @@ button.primary:active{background:var(--red-dark)}
           <div class="addrow">
             <input type="text" id="addFleetReg" placeholder="New simulator registration">
             <button class="iconbtn primaryish" id="addFleetRegBtn">➕ Add Simulator Registration</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="chead"><span class="cname">Simulator centre details</span></div>
-        <div class="pad">
-          <p style="font-size:12.5px;color:var(--mut);margin-bottom:10px">City and timezone for each simulator centre named above. Timezone is used internally to record session and signature times — it is never shown to instructors. Use a real IANA timezone identifier, for example Asia/Kolkata or Europe/London.</p>
-          <div id="centreDetailList"></div>
-          <div class="addrow" style="flex-wrap:wrap">
-            <input type="text" id="addCentreDetailName" placeholder="Centre name" style="flex:1 1 160px">
-            <input type="text" id="addCentreDetailCity" placeholder="City" style="flex:1 1 120px">
-            <input type="text" id="addCentreDetailTimezone" placeholder="Timezone, e.g. Asia/Kolkata" style="flex:1 1 180px">
-            <button class="iconbtn primaryish" id="addCentreDetailBtn">➕ Add Centre Detail</button>
           </div>
         </div>
       </div>
@@ -668,7 +652,6 @@ const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbzhkCzbpxTFUxIeYI
 const CBTA_DEFAULT_SETTINGS = {
   trainingTypes: ["REC 04", "UPRT"],
   simulatorDirectory: { A320: {}, A350: {}, B787: {}, B777: {} },
-  centreDirectory: {},
   notificationRecipients: []
 };
 function normalizeLoadedSettings_(raw){
@@ -679,23 +662,11 @@ function normalizeLoadedSettings_(raw){
       .filter(([centre, registrations])=>centre.trim() && Array.isArray(registrations))
       .map(([centre, registrations])=>[centre, registrations.filter(item=>typeof item==="string" && item.trim())]));
   };
-  const centreDir = (raw && raw.centreDirectory && typeof raw.centreDirectory==="object") ? raw.centreDirectory : {};
-  const normalizedCentreDir = Object.fromEntries(Object.entries(centreDir)
-    .filter(([name, info])=>name.trim() && info && typeof info==="object")
-    .map(([name, info])=>[name, { city: typeof info.city==="string"?info.city:"", timezone: typeof info.timezone==="string" && info.timezone.trim() ? info.timezone.trim() : "Asia/Kolkata" }]));
   return {
     trainingTypes: (raw && Array.isArray(raw.trainingTypes) && raw.trainingTypes.length) ? raw.trainingTypes : CBTA_DEFAULT_SETTINGS.trainingTypes.slice(),
     simulatorDirectory: { A320: normalizeFleet("A320"), A350: normalizeFleet("A350"), B787: normalizeFleet("B787"), B777: normalizeFleet("B777") },
-    centreDirectory: normalizedCentreDir,
     notificationRecipients: (raw && Array.isArray(raw.notificationRecipients)) ? raw.notificationRecipients : []
   };
-}
-/* Looks up a configured simulator centre's IANA timezone. Centres without
-   a configured timezone yet (existing data predating this feature) fall
-   back to Asia/Kolkata — a sensible default rather than a broken lookup. */
-function getCentreTimezone_(centreName, settings){
-  const entry = settings && settings.centreDirectory && settings.centreDirectory[centreName];
-  return (entry && entry.timezone) || "Asia/Kolkata";
 }
 async function loadSettings(){
   try{
@@ -819,13 +790,8 @@ const COMPS=[
 ];
 
 /* ════════ State (in-memory only) ════════ */
-function todayISTddmmyyyy(){
-  const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Kolkata",day:"2-digit",month:"2-digit",year:"numeric"}).formatToParts(new Date());
-  const value=type=>parts.find(part=>part.type===type).value;
-  return value("day")+"/"+value("month")+"/"+value("year");
-}
 const state={
-  session:{aircraft:"",training:"",centre:"",reg:"",centreTimezone:"",date:todayISTddmmyyyy(),from:"",to:"",totalTime:"",downtime:"00:00",actualTrainingTime:""},
+  session:{aircraft:"",training:"",centre:"",reg:"",date:"",from:"",to:"",totalTime:"",downtime:"00:00",actualTrainingTime:""},
   trainee:{name:"",email:"",role:"",seat:"",license:"",licenseNo:"",emp:""},
   trainer:{name:"",email:"",qualification:"",license:"",licenseNo:"",emp:""},
   comps:COMPS.map(c=>({grade:null,comments:"",autoGrade1:false,obs:c.obs.map(()=>({app:true,seen:true}))})),
@@ -833,7 +799,7 @@ const state={
   outcome:null,pms:null,
   autoUnsat:false,
   autoUnsatReasons:{grade1:false,grade2:false},
-  sigs:{Trainer:{data:null,dt:null},Trainee:{data:null,dt:null}}
+  sigs:{Trainer:{data:null},Trainee:{data:null}}
 };
 const getPath=p=>p.split(".").reduce((o,k)=>o[k],state);
 const setPath=(p,v)=>{const ks=p.split("."),last=ks.pop();ks.reduce((o,k)=>o[k],state)[last]=v;};
@@ -851,14 +817,30 @@ document.getElementById("segAircraft").addEventListener("click", async (e)=>{
   if(!b) return;
   const settings = await loadSettings();
   setPath("session.centre", "");
-  setPath("session.centreTimezone", "");
   setPath("session.reg", "");
   populateCentreSelect(state.session.aircraft, settings, false);
   populateRegSelect(state.session.aircraft, state.session.centre, settings, false);
 });
 seg(document.getElementById("segRole"),["P1","P2"],"trainee.role");
 seg(document.getElementById("segSeat"),["LHS","RHS"],"trainee.seat");
-seg(document.getElementById("segInstructorQualification"),["TRI(A)","TRI(S)","SFI","DE"],"trainer.qualification");
+let p2LhsPrevRole=state.trainee.role, p2LhsPrevSeat=state.trainee.seat;
+function checkP2LhsCombination(){
+  const changed=(state.trainee.role!==p2LhsPrevRole)||(state.trainee.seat!==p2LhsPrevSeat);
+  p2LhsPrevRole=state.trainee.role;
+  p2LhsPrevSeat=state.trainee.seat;
+  if(!changed) return; // clicking an already-selected option must never retrigger this
+  if(state.trainee.role==="P2" && state.trainee.seat==="LHS"){
+    const ok=confirm("Please confirm: P2 selected for LHS.\nIs this correct?");
+    if(!ok){
+      setPath("trainee.seat","");
+      p2LhsPrevSeat="";
+      document.getElementById("segSeat").querySelectorAll("button").forEach(b=>b.classList.remove("sel"));
+    }
+  }
+}
+document.getElementById("segRole").addEventListener("click", checkP2LhsCombination);
+document.getElementById("segSeat").addEventListener("click", checkP2LhsCombination);
+seg(document.getElementById("segInstructorQualification"),["TRI(A)","TRI(S)","SFI","SFE","DE"],"trainer.qualification");
 
 /* ════════ Assessment-form dropdowns sourced from settings ════════ */
 function populateSelect(sel, items, keepValue, prompt){
@@ -923,7 +905,6 @@ await refreshAssessmentDropdowns(false);
 document.querySelector('[data-bind="session.centre"]').addEventListener("change", async ()=>{
   const settings = await loadSettings();
   setPath("session.reg", "");
-  setPath("session.centreTimezone", getCentreTimezone_(state.session.centre, settings));
   populateRegSelect(state.session.aircraft, state.session.centre, settings, false);
 });
 
@@ -931,6 +912,18 @@ document.querySelector('[data-bind="session.centre"]').addEventListener("change"
 document.querySelectorAll("[data-bind]").forEach(el=>{
   el.value=getPath(el.dataset.bind);
   el.addEventListener("input",()=>setPath(el.dataset.bind,el.value));
+});
+
+/* Employee Number — digits only. Strips any non-digit character as it is
+   entered (covers typing, paste and autofill), keeping state in sync with
+   the cleaned value immediately. */
+["trainee.emp","trainer.emp"].forEach(path=>{
+  const el=document.querySelector(`[data-bind="${path}"]`);
+  el.addEventListener("input",()=>{
+    const cleaned=el.value.replace(/\D/g,"");
+    if(el.value!==cleaned) el.value=cleaned;
+    setPath(path, el.value);
+  });
 });
 
 /* ════════ Session timings ════════ */
@@ -969,6 +962,26 @@ function populateFiveMinuteDigits(sel){
 ["downtimeMM"].forEach(id=>populateFiveMinuteDigits(document.getElementById(id)));
 document.getElementById("downtimeHH").value="00";
 document.getElementById("downtimeMM").value="00";
+
+/* Session Date — a plain dropdown of dates around today. No timezone or
+   simulator-centre local-time calculation of any kind: "today" is simply
+   whatever date this device's own clock reports, exactly like any other
+   date shown in the browser, with no explicit conversion applied. */
+function ddmmyyyy(d){
+  return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
+}
+(function populateSessionDateOptions(){
+  const sel=document.getElementById("sessionDate");
+  const today=new Date();
+  let opts="";
+  for(let offset=-7; offset<=7; offset++){
+    const d=new Date(today.getFullYear(), today.getMonth(), today.getDate()+offset);
+    const value=ddmmyyyy(d);
+    opts+=`<option value="${value}"${offset===0?" selected":""}>${value}${offset===0?" (today)":""}</option>`;
+  }
+  sel.innerHTML=opts;
+  setPath("session.date", sel.value);
+})();
 
 function syncTimeField(prefix,path){
   const hh=document.getElementById(prefix+"HH").value,mm=document.getElementById(prefix+"MM").value;
@@ -1094,6 +1107,14 @@ function updateAutoGrades(){
   updateAutoOutcome();
 }
 function updateAutoOutcome(){
+  const allGraded=state.comps.every(c=>c.grade!=null);
+  if(!allGraded){
+    state.outcome=null;
+    state.autoUnsat=false;
+    state.autoUnsatReasons={grade1:false,grade2:false};
+    return;
+  }
+
   const graded=state.comps.map((c,i)=>({grade:c.grade, appCount:competencyCoverage_(i).appCount}))
     .filter(c=>c.appCount>0); // Not Applicable competencies are excluded from the outcome calculation
   const hasGrade1=graded.some(c=>c.grade===1);
@@ -1212,23 +1233,18 @@ function sizePad(who){
   if(state.sigs[who].data){const img=new Image();img.onload=()=>ctx.drawImage(img,0,0,w,h);img.src=state.sigs[who].data;}
 }
 function markSigned(who){
-  if(!state.sigs[who].dt){
-    state.sigs[who].dt=new Date();
-    document.getElementById("sigDt"+who).textContent=stampText(state.sigs[who].dt, state.session.centreTimezone);
-    document.getElementById("stamp"+who).textContent="Signed";
-  }
+  document.getElementById("stamp"+who).textContent="Signed";
   document.getElementById("hint"+who).style.display="none";
 }
 function clearSig(who){
   const{canvas,ctx}=pads[who];
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  state.sigs[who]={data:null,dt:null};
+  state.sigs[who]={data:null};
   document.getElementById("hint"+who).style.display="flex";
-  document.getElementById("sigDt"+who).textContent="—";
   document.getElementById("stamp"+who).textContent="";
 }
-const stampText=(d,tz)=>d.toLocaleDateString("en-GB",{timeZone:tz||"Asia/Kolkata",day:"2-digit",month:"short",year:"numeric"})+" · "+
-  d.toLocaleTimeString("en-GB",{timeZone:tz||"Asia/Kolkata",hour:"2-digit",minute:"2-digit"});
+const stampText=d=>d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+" · "+
+  d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
 initPad("Trainer");initPad("Trainee");
 window.addEventListener("resize",()=>{if(current===4){sizePad("Trainer");sizePad("Trainee");}});
 
@@ -1272,6 +1288,8 @@ function validateForm(){
     items.push({label:"Instructor email address — not a valid email format", page:1, selector:'[data-bind="trainer.email"]'});
   push(!state.trainer.license||!state.trainer.licenseNo.trim(), "Instructor licence details", 1, '[data-bind="trainer.licenseNo"]');
   push(!state.trainer.qualification, "Instructor qualification", 1, "#segInstructorQualification");
+  if(state.trainer.emp && !/^\d+$/.test(state.trainer.emp))
+    items.push({label:"Instructor employee number — numbers only", page:1, selector:'[data-bind="trainer.emp"]'});
   push(!state.sigs.Trainer.data, "Instructor signature", 4, "#sigTrainer");
 
   push(!state.trainee.name.trim(), "Trainee name", 1, '[data-bind="trainee.name"]');
@@ -1280,6 +1298,8 @@ function validateForm(){
     items.push({label:"Trainee email address — not a valid email format", page:1, selector:'[data-bind="trainee.email"]'});
   push(!state.trainee.license||!state.trainee.licenseNo.trim(), "Trainee licence details", 1, '[data-bind="trainee.licenseNo"]');
   push(!state.trainee.role||!state.trainee.seat, "Trainee qualification (role and seat)", 1, "#segRole");
+  if(state.trainee.emp && !/^\d+$/.test(state.trainee.emp))
+    items.push({label:"Trainee employee number — numbers only", page:1, selector:'[data-bind="trainee.emp"]'});
   push(!state.sigs.Trainee.data, "Trainee signature", 4, "#sigTrainee");
 
   COMPS.forEach((c,i)=>{ if(state.comps[i].grade==null) items.push({label:c.code+" competency grade", page:4, selector:`[data-mx="${i}.1"]`}); });
@@ -1342,8 +1362,8 @@ function buildAssessmentPayload(){
     outcome:state.outcome,
     pms:state.pms,
     signatures:{
-      trainer:{data:state.sigs.Trainer.data,dt:state.sigs.Trainer.dt?state.sigs.Trainer.dt.toISOString():null},
-      trainee:{data:state.sigs.Trainee.data,dt:state.sigs.Trainee.dt?state.sigs.Trainee.dt.toISOString():null}
+      trainer:{data:state.sigs.Trainer.data},
+      trainee:{data:state.sigs.Trainee.data}
     },
     clientSubmittedAt:new Date().toISOString()
   };
@@ -1390,7 +1410,7 @@ document.getElementById("submitBtn").addEventListener("click",()=>{
       throw new Error(res&&res.message?res.message:"The backend reported an error.");
     }
     document.getElementById("assessId").textContent=res.assessmentId;
-    document.getElementById("assessDt").textContent=stampText(new Date(res.submittedAt), state.session.centreTimezone);
+    document.getElementById("assessDt").textContent=stampText(new Date(res.submittedAt));
     document.getElementById("pdfStatus").textContent=res.pdfUrl?"PDF generated successfully":"PDF generation pending";
     setStatus("","");
     goTo("done");
@@ -1458,7 +1478,6 @@ async function renderAdminLists(){
   renderFleetTabs();
   renderFleetCentreList();
   renderFleetRegList();
-  renderCentreDetailList();
 }
 
 function escapeHtml(s){
@@ -1556,36 +1575,6 @@ document.getElementById("addFleetRegBtn").addEventListener("click", ()=>{
   renderFleetRegList();
 });
 
-function renderCentreDetailList(){
-  const host = document.getElementById("centreDetailList");
-  const names = Object.keys(workingSettings.centreDirectory);
-  host.innerHTML = names.map((name,i)=>{
-    const info = workingSettings.centreDirectory[name];
-    return `
-    <div class="listrow" data-kind="centreDetail" data-index="${i}" data-name="${escapeHtml(name)}">
-      <span class="itxt">${escapeHtml(name)} — ${escapeHtml(info.city||"—")} · ${escapeHtml(info.timezone)}</span>
-      <button class="iconbtn" data-act="edit">✏ Edit</button>
-      <button class="iconbtn danger" data-act="delete">🗑 Delete</button>
-      <button class="iconbtn" data-act="up" ${i===0?"disabled":""}>⬆ Move Up</button>
-      <button class="iconbtn" data-act="down" ${i===names.length-1?"disabled":""}>⬇ Move Down</button>
-    </div>`;
-  }).join("") || `<p style="font-size:13px;color:var(--mut);padding:8px 0">No centre details configured yet — add one below.</p>`;
-}
-document.getElementById("addCentreDetailBtn").addEventListener("click", ()=>{
-  const nameInput = document.getElementById("addCentreDetailName");
-  const cityInput = document.getElementById("addCentreDetailCity");
-  const tzInput = document.getElementById("addCentreDetailTimezone");
-  const name = nameInput.value.trim(), city = cityInput.value.trim(), timezone = tzInput.value.trim();
-  if(!name || !timezone || workingSettings.centreDirectory[name]) return;
-  if(!isValidIanaTimezone_(timezone)){ alert("That doesn't look like a valid timezone (for example, Asia/Kolkata or Europe/London)."); return; }
-  workingSettings.centreDirectory[name] = { city, timezone };
-  nameInput.value = ""; cityInput.value = ""; tzInput.value = "";
-  renderCentreDetailList();
-});
-function isValidIanaTimezone_(tz){
-  try{ Intl.DateTimeFormat(undefined, {timeZone: tz}); return true; }catch(e){ return false; }
-}
-
 /* Add */
 document.querySelectorAll("[data-add]").forEach(btn=>{
   btn.addEventListener("click", ()=>{
@@ -1670,50 +1659,6 @@ document.addEventListener("click",(e)=>{
     return;
   }
 
-  if(row.dataset.kind==="centreDetail"){
-    const names = Object.keys(workingSettings.centreDirectory);
-    const i = parseInt(row.dataset.index,10);
-    const name = row.dataset.name;
-    if(act==="up" && i>0){
-      const reordered = names.slice();
-      [reordered[i-1], reordered[i]] = [reordered[i], reordered[i-1]];
-      workingSettings.centreDirectory = Object.fromEntries(reordered.map(n=>[n, workingSettings.centreDirectory[n]]));
-      renderCentreDetailList();
-    } else if(act==="down" && i<names.length-1){
-      const reordered = names.slice();
-      [reordered[i+1], reordered[i]] = [reordered[i], reordered[i+1]];
-      workingSettings.centreDirectory = Object.fromEntries(reordered.map(n=>[n, workingSettings.centreDirectory[n]]));
-      renderCentreDetailList();
-    } else if(act==="edit"){
-      const info = workingSettings.centreDirectory[name];
-      row.innerHTML = `
-        <input type="text" value="${escapeHtml(name)}" placeholder="Centre name" style="flex:1 1 140px">
-        <input type="text" value="${escapeHtml(info.city||"")}" placeholder="City" style="flex:1 1 100px">
-        <input type="text" value="${escapeHtml(info.timezone)}" placeholder="Timezone" style="flex:1 1 160px">
-        <button class="iconbtn primaryish" data-act="save-edit">Save</button>
-        <button class="iconbtn" data-act="cancel-edit">Cancel</button>
-      `;
-      row.querySelectorAll("input")[0].focus();
-    } else if(act==="save-edit"){
-      const inputs = row.querySelectorAll("input");
-      const newName = inputs[0].value.trim(), newCity = inputs[1].value.trim(), newTz = inputs[2].value.trim();
-      if(newName && newTz && isValidIanaTimezone_(newTz) && (newName===name || !workingSettings.centreDirectory[newName])){
-        if(newName!==name) delete workingSettings.centreDirectory[name];
-        workingSettings.centreDirectory[newName] = { city:newCity, timezone:newTz };
-      } else if(newTz && !isValidIanaTimezone_(newTz)){
-        alert("That doesn't look like a valid timezone (for example, Asia/Kolkata or Europe/London).");
-      }
-      renderCentreDetailList();
-    } else if(act==="cancel-edit"){
-      renderCentreDetailList();
-    } else if(act==="delete"){
-      pendingDelete = {kind:"centreDetail", name};
-      deleteDlgMessage.textContent = `Delete centre details for "${name}"?`;
-      deleteDlgBackdrop.classList.add("open");
-    }
-    return;
-  }
-
   const field = row.dataset.field;
   const i = parseInt(row.dataset.index,10);
 
@@ -1756,9 +1701,6 @@ document.getElementById("deleteDlgConfirm").addEventListener("click", ()=>{
     } else if(pendingDelete.kind==="registration"){
       currentFleetCentres()[currentFleetCentre].splice(pendingDelete.index,1);
       renderFleetRegList();
-    } else if(pendingDelete.kind==="centreDetail"){
-      delete workingSettings.centreDirectory[pendingDelete.name];
-      renderCentreDetailList();
     } else {
       workingSettings[pendingDelete.field].splice(pendingDelete.index,1);
       renderAdminList(pendingDelete.field);
