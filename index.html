@@ -170,6 +170,9 @@ input::placeholder,textarea::placeholder{color:var(--faint)}
 .dots i.cur{width:22px;background:var(--gold)}
 .dots small{font-size:12px;color:var(--mut);margin-left:4px}
 .btns{display:flex;gap:10px}
+.pageJump{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut)}
+.pageJump button{appearance:none;border:none;background:none;font:inherit;font-size:13px;color:var(--sub);cursor:pointer;padding:2px}
+.pageJump button:hover{color:var(--ink);text-decoration:underline}
 button.nav{appearance:none;font:inherit;font-size:14px;border-radius:999px;padding:12px 24px;cursor:pointer;min-height:46px}
 button.ghost{background:#fff;color:var(--sub);border:0.5px solid var(--bd)}
 button.ghost:active{background:var(--card)}
@@ -355,6 +358,7 @@ button.primary:active{background:var(--red-dark)}
     <div class="foot">
       <div class="dots"><i class="cur"></i><i></i><i></i><i></i><small>Page 1 of 4</small></div>
       <div class="btns">
+        <span class="pageJump"><button type="button" data-go="2">2</button> · <button type="button" data-go="3">3</button> · <button type="button" data-go="4">4</button></span>
         <button class="nav primary" data-go="2">Next <span class="arrow">→</span></button>
       </div>
     </div>
@@ -373,6 +377,7 @@ button.primary:active{background:var(--red-dark)}
       <div class="dots"><i class="done"></i><i class="cur"></i><i></i><i></i><small>Page 2 of 4</small></div>
       <div class="btns">
         <button class="nav ghost" data-go="1"><span class="arrow-g">←</span> Previous</button>
+        <span class="pageJump"><button type="button" data-go="1">1</button> · <button type="button" data-go="3">3</button> · <button type="button" data-go="4">4</button></span>
         <button class="nav primary" data-go="3">Next <span class="arrow">→</span></button>
       </div>
     </div>
@@ -394,6 +399,7 @@ button.primary:active{background:var(--red-dark)}
       <div class="dots"><i class="done"></i><i class="done"></i><i class="cur"></i><i></i><small>Page 3 of 4</small></div>
       <div class="btns">
         <button class="nav ghost" data-go="2"><span class="arrow-g">←</span> Previous</button>
+        <span class="pageJump"><button type="button" data-go="1">1</button> · <button type="button" data-go="2">2</button> · <button type="button" data-go="4">4</button></span>
         <button class="nav primary" data-go="4">Next <span class="arrow">→</span></button>
       </div>
     </div>
@@ -495,6 +501,7 @@ button.primary:active{background:var(--red-dark)}
       <div class="dots"><i class="done"></i><i class="done"></i><i class="done"></i><i class="cur"></i><small>Page 4 of 4</small></div>
       <div class="btns">
         <button class="nav ghost" data-go="3"><span class="arrow-g">←</span> Previous</button>
+        <span class="pageJump"><button type="button" data-go="1">1</button> · <button type="button" data-go="2">2</button> · <button type="button" data-go="3">3</button></span>
         <button class="nav primary" id="submitBtn"><span class="arrow">✓</span> Submit assessment</button>
       </div>
     </div>
@@ -1312,6 +1319,7 @@ function validateForm(){
     items.push({label:"Instructor email address — not a valid email format", page:1, selector:'[data-bind="trainer.email"]'});
   push(!state.trainer.license||!state.trainer.licenseNo.trim(), "Instructor licence details", 1, '[data-bind="trainer.licenseNo"]');
   push(!state.trainer.qualification, "Instructor qualification", 1, "#segInstructorQualification");
+  push(!state.trainer.emp.trim(), "Instructor employee number", 1, '[data-bind="trainer.emp"]');
   if(state.trainer.emp && !/^\d+$/.test(state.trainer.emp))
     items.push({label:"Instructor employee number — numbers only", page:1, selector:'[data-bind="trainer.emp"]'});
   push(!state.sigs.Trainer.data, "Instructor signature", 4, "#sigTrainer");
@@ -1322,6 +1330,7 @@ function validateForm(){
     items.push({label:"Trainee email address — not a valid email format", page:1, selector:'[data-bind="trainee.email"]'});
   push(!state.trainee.license||!state.trainee.licenseNo.trim(), "Trainee licence details", 1, '[data-bind="trainee.licenseNo"]');
   push(!state.trainee.role||!state.trainee.seat, "Trainee qualification (role and seat)", 1, "#segRole");
+  push(!state.trainee.emp.trim(), "Trainee employee number", 1, '[data-bind="trainee.emp"]');
   if(state.trainee.emp && !/^\d+$/.test(state.trainee.emp))
     items.push({label:"Trainee employee number — numbers only", page:1, selector:'[data-bind="trainee.emp"]'});
   push(!state.sigs.Trainee.data, "Trainee signature", 4, "#sigTrainee");
